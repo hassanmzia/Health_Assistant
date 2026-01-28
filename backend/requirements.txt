@@ -29,7 +29,7 @@ channels-redis==4.2.0
 
 # Utils
 python-dotenv==1.0.0
-pydantic==2.5.3
+pydantic==2.10.4
 redis==5.0.1
 celery==5.3.6
 
