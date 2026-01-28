@@ -168,14 +168,14 @@ services:
     container_name: healthcare_frontend
     environment:
       - NODE_ENV=production
-      - REACT_APP_API_URL=http://localhost:8000/api
-      - REACT_APP_WS_URL=ws://localhost:3002
-      - REACT_APP_MCP_URL=http://localhost:3001
+      - VITE_API_URL=http://localhost:8000/api
+      - VITE_WS_URL=ws://localhost:3002
+      - VITE_MCP_URL=http://localhost:3001
     volumes:
       - ./frontend:/app
       - /app/node_modules
     ports:
-      - "3000:3000"
+      - "3040:3040"
     depends_on:
       - backend
       - ws-server
