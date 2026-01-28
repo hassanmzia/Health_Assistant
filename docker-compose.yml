@@ -1,0 +1,209 @@
+version: '3.9'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: healthcare_postgres
+    environment:
+      POSTGRES_DB: healthcare_db
+      POSTGRES_USER: healthcare_user
+      POSTGRES_PASSWORD: healthcare_secure_pass_2024
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U healthcare_user -d healthcare_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - healthcare_network
+
+  # Redis for caching and pub/sub
+  redis:
+    image: redis:7-alpine
+    container_name: healthcare_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - healthcare_network
+
+  # Django Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: healthcare_backend
+    environment:
+      - DEBUG=False
+      - DATABASE_URL=postgresql://healthcare_user:healthcare_secure_pass_2024@postgres:5432/healthcare_db
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=django-healthcare-secret-key-2024-very-secure
+      - ALLOWED_HOSTS=localhost,127.0.0.1,backend
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - MCP_SERVER_URL=http://mcp-server:3001
+      - AGENT_ORCHESTRATOR_URL=http://agents:8001
+      - WS_SERVER_URL=http://ws-server:3002
+    volumes:
+      - ./backend:/app
+      - backend_static:/app/staticfiles
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - healthcare_network
+
+  # MCP Server (Model Context Protocol)
+  mcp-server:
+    build:
+      context: ./mcp-server
+      dockerfile: Dockerfile
+    container_name: healthcare_mcp_server
+    environment:
+      - NODE_ENV=production
+      - PORT=3001
+      - DATABASE_URL=postgresql://healthcare_user:healthcare_secure_pass_2024@postgres:5432/healthcare_db
+      - REDIS_URL=redis://redis:6379/1
+    volumes:
+      - ./mcp-server:/app
+      - /app/node_modules
+    ports:
+      - "3001:3001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - healthcare_network
+
+  # Multi-Agent Orchestrator Service
+  agents:
+    build:
+      context: ./agents
+      dockerfile: Dockerfile
+    container_name: healthcare_agents
+    environment:
+      - PYTHONUNBUFFERED=1
+      - DATABASE_URL=postgresql://healthcare_user:healthcare_secure_pass_2024@postgres:5432/healthcare_db
+      - REDIS_URL=redis://redis:6379/2
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - MCP_SERVER_URL=http://mcp-server:3001
+      - BACKEND_URL=http://backend:8000
+      - WS_SERVER_URL=http://ws-server:3002
+      - A2A_PORT=8001
+    volumes:
+      - ./agents:/app
+    ports:
+      - "8001:8001"
+    depends_on:
+      - postgres
+      - redis
+      - mcp-server
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - healthcare_network
+
+  # WebSocket Server (Node.js)
+  ws-server:
+    build:
+      context: ./ws-server
+      dockerfile: Dockerfile
+    container_name: healthcare_ws_server
+    environment:
+      - NODE_ENV=production
+      - PORT=3002
+      - REDIS_URL=redis://redis:6379/3
+      - BACKEND_URL=http://backend:8000
+      - AGENT_URL=http://agents:8001
+    volumes:
+      - ./ws-server:/app
+      - /app/node_modules
+    ports:
+      - "3002:3002"
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - healthcare_network
+
+  # React Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: healthcare_frontend
+    environment:
+      - NODE_ENV=production
+      - REACT_APP_API_URL=http://localhost:8000/api
+      - REACT_APP_WS_URL=ws://localhost:3002
+      - REACT_APP_MCP_URL=http://localhost:3001
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+      - ws-server
+    networks:
+      - healthcare_network
+
+  # Nginx Reverse Proxy (Production)
+  nginx:
+    image: nginx:alpine
+    container_name: healthcare_nginx
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - backend_static:/var/www/static:ro
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+      - frontend
+      - ws-server
+      - mcp-server
+    networks:
+      - healthcare_network
+
+volumes:
+  postgres_data:
+  redis_data:
+  backend_static:
+
+networks:
+  healthcare_network:
+    driver: bridge
