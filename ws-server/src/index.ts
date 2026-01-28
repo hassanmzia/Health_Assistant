@@ -9,6 +9,20 @@ import { Server, Socket } from 'socket.io';
 import { createClient } from 'redis';
 import cors from 'cors';
 
+// Type definitions for API responses
+interface QueryResult {
+  session_id: string;
+  status: string;
+  query_type?: string;
+  result?: string;
+  requires_approval?: boolean;
+  approval_details?: {
+    generated_sql?: string;
+    risk_assessment?: string;
+    risk_score?: number;
+  };
+}
+
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -93,7 +107,7 @@ io.on('connection', (socket: Socket) => {
         }
       );
 
-      const result = await response.json();
+      const result = await response.json() as QueryResult;
 
       if (result.requires_approval) {
         // Notify about approval requirement
@@ -142,7 +156,7 @@ io.on('connection', (socket: Socket) => {
         }
       );
 
-      const result = await response.json();
+      const result = await response.json() as QueryResult;
 
       io.to(sessionId).emit('decision_processed', {
         sessionId,
