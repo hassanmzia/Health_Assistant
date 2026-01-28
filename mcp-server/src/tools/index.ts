@@ -53,7 +53,7 @@ export const healthcareTools: Tool[] = [
       return {
         rows: result.rows,
         rowCount: result.rowCount,
-        fields: result.fields.map(f => f.name)
+        fields: result.fields.map((f: { name: string }) => f.name)
       };
     }
   },
