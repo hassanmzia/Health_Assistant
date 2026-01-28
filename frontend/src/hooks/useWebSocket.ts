@@ -1,7 +1,7 @@
 import { useCallback, useRef } from 'react'
 import { io, Socket } from 'socket.io-client'
 import { useStore } from '../store'
-import { Message, ApprovalTask } from '../types'
+import { ApprovalTask } from '../types'
 
 const WS_URL = import.meta.env.VITE_WS_URL || 'http://localhost:3002'
 
