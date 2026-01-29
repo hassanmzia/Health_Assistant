@@ -8,6 +8,9 @@ import DashboardPage from './components/dashboard/DashboardPage'
 import HITLPage from './components/hitl/HITLPage'
 import AgentMonitoringPage from './components/agents/AgentMonitoringPage'
 import ObservabilityDashboard from './components/observability/ObservabilityDashboard'
+import FHIRBrowserPage from './components/fhir/FHIRBrowserPage'
+import FHIRPatientList from './components/fhir/FHIRPatientList'
+import FHIRPatientDetail from './components/fhir/FHIRPatientDetail'
 
 function App() {
   const { connect, disconnect } = useWebSocket()
@@ -31,6 +34,9 @@ function App() {
           <Route path="hitl" element={<HITLPage />} />
           <Route path="agents" element={<AgentMonitoringPage />} />
           <Route path="observability" element={<ObservabilityDashboard />} />
+          <Route path="fhir" element={<FHIRBrowserPage />} />
+          <Route path="fhir/patients" element={<FHIRPatientList />} />
+          <Route path="fhir/patients/:id" element={<FHIRPatientDetail />} />
         </Route>
       </Routes>
     </BrowserRouter>
