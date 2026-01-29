@@ -8,6 +8,8 @@ from .detector import PHIDetector, detect_phi_columns, detect_phi_in_text
 from .toxicity import ToxicityFilter, check_query_toxicity
 from .config import (
     SENSITIVE_COLUMNS,
+    BLOCKED_COLUMNS,
+    HITL_REQUIRED_COLUMNS,
     PHI_PATTERNS,
     TOXIC_PATTERNS,
     MaskingLevel
@@ -23,6 +25,8 @@ __all__ = [
     'detect_phi_in_text',
     'check_query_toxicity',
     'SENSITIVE_COLUMNS',
+    'BLOCKED_COLUMNS',
+    'HITL_REQUIRED_COLUMNS',
     'PHI_PATTERNS',
     'TOXIC_PATTERNS',
     'MaskingLevel',
