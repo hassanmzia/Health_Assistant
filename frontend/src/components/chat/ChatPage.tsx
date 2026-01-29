@@ -39,10 +39,16 @@ export default function ChatPage() {
   }
 
   const exampleQueries = [
-    "Show me all patients with diabetes",
-    "What medications is John Smith taking?",
-    "List conditions for patients over 60",
-    "Insert a new patient named Jane Doe",
+    "How many active patients are in the database?",
+    "List conditions for patients over 50",
+    "Show top 10 most common diagnoses",
+    "What are the most prescribed medications?",
+    "Show all emergency encounters from the last 30 days",
+    "List patients with active allergies to medications",
+    "Show vital signs observations with abnormal results",
+    "How many patients are on more than 3 active medications?",
+    "List all completed procedures grouped by type",
+    "Show patient demographics breakdown by gender and age group",
   ]
 
   return (
@@ -55,7 +61,7 @@ export default function ChatPage() {
             <div className="flex flex-col items-center justify-center h-full text-gray-500">
               <h3 className="text-lg font-medium mb-4">Healthcare Intelligence Assistant</h3>
               <p className="text-sm mb-6">Ask questions about patient data in natural language</p>
-              <div className="grid grid-cols-2 gap-2 max-w-lg">
+              <div className="grid grid-cols-2 gap-2 max-w-2xl">
                 {exampleQueries.map((query, idx) => (
                   <button
                     key={idx}
