@@ -165,10 +165,10 @@ export default function WorkflowDiagram({ className }: WorkflowDiagramProps) {
       const { svg } = await mermaid.render(`mermaid-${Date.now()}`, diagram)
       containerRef.current.innerHTML = svg
 
-      // Make SVG responsive and smaller (scaled down but fully visible)
+      // Make SVG responsive and smaller (scaled down to 25% - reduced by 75%)
       const svgElement = containerRef.current.querySelector('svg')
       if (svgElement) {
-        svgElement.style.maxWidth = '50%'
+        svgElement.style.maxWidth = '25%'
         svgElement.style.height = 'auto'
       }
     } catch (err) {
