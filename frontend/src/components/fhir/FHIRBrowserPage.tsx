@@ -129,7 +129,7 @@ docker compose exec backend python manage.py generate_fhir_data --patients 100`}
     )
   }
 
-  const counts = stats?.counts || {}
+  const counts = stats?.counts || {} as FHIRStatistics['counts']
 
   return (
     <div className="space-y-6">
