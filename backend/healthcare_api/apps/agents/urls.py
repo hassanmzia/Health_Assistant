@@ -147,11 +147,64 @@ def agent_stats(request):
     })
 
 
+@api_view(['GET'])
+def agent_workflow(request):
+    """Get LangGraph workflow as Mermaid diagram"""
+    agent_url = os.environ.get('AGENT_ORCHESTRATOR_URL', 'http://localhost:8001')
+
+    try:
+        response = httpx.get(f'{agent_url}/workflow', timeout=10.0)
+        return Response(response.json(), status=response.status_code)
+    except httpx.RequestError as e:
+        # Return default workflow diagram on error
+        return Response({
+            'mermaid': get_default_workflow_diagram(),
+            'error': f'Agent service unavailable: {str(e)}'
+        })
+
+
+def get_default_workflow_diagram():
+    """Return default Mermaid workflow diagram"""
+    return """flowchart TD
+    START([Start]) --> fetch_schema[Fetch Schema]
+    fetch_schema --> generate_sql[Generate SQL]
+    generate_sql --> classify_query[Classify Query]
+    classify_query --> check_guardrails[Check Guardrails]
+
+    check_guardrails --> route_decision{Route Decision}
+
+    route_decision -->|READ query| execute_sql[Execute SQL]
+    route_decision -->|WRITE query| hitl_gate[HITL Gate]
+    route_decision -->|UNSAFE/Violations| handle_rejection[Handle Rejection]
+
+    hitl_gate --> hitl_decision{Human Decision}
+    hitl_decision -->|Approved| execute_sql
+    hitl_decision -->|Rejected| handle_rejection
+
+    execute_sql --> present_results[Present Results]
+    present_results --> log_audit[Log Audit]
+    handle_rejection --> log_audit
+    log_audit --> END([End])
+
+    style START fill:#22c55e,stroke:#16a34a,color:#fff
+    style END fill:#ef4444,stroke:#dc2626,color:#fff
+    style hitl_gate fill:#f59e0b,stroke:#d97706,color:#fff
+    style hitl_decision fill:#f59e0b,stroke:#d97706,color:#000
+    style handle_rejection fill:#ef4444,stroke:#dc2626,color:#fff
+    style execute_sql fill:#3b82f6,stroke:#2563eb,color:#fff
+    style generate_sql fill:#8b5cf6,stroke:#7c3aed,color:#fff
+    style classify_query fill:#ec4899,stroke:#db2777,color:#fff
+    style check_guardrails fill:#06b6d4,stroke:#0891b2,color:#fff
+    style present_results fill:#10b981,stroke:#059669,color:#fff
+"""
+
+
 urlpatterns = [
     path('process/', process_query, name='process_query'),
     path('resume/', resume_query, name='resume_query'),
     path('interactions/', agent_interactions, name='agent_interactions'),
     path('stats/', agent_stats, name='agent_stats'),
+    path('workflow/', agent_workflow, name='agent_workflow'),
     path('', list_agents, name='list_agents'),
     path('<str:agent_name>/', agent_status, name='agent_status'),
 ]

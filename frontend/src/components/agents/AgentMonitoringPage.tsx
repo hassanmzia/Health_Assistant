@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Bot, Activity, Cpu, Zap, Clock, CheckCircle2, XCircle, AlertTriangle, RefreshCw } from 'lucide-react'
 import axios from 'axios'
 import { clsx } from 'clsx'
+import WorkflowDiagram from './WorkflowDiagram'
 
 const API_URL = import.meta.env.VITE_API_URL || '/api'
 
@@ -277,72 +278,8 @@ export default function AgentMonitoringPage() {
         </div>
       </div>
 
-      {/* LangGraph Workflow Diagram */}
-      <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">Workflow Pipeline</h2>
-        <div className="flex items-center justify-center overflow-x-auto py-4">
-          <div className="flex items-center gap-2">
-            {/* Start */}
-            <div className="flex flex-col items-center">
-              <div className="w-12 h-12 bg-gray-200 rounded-full flex items-center justify-center">
-                <span className="text-xs font-medium text-gray-600">START</span>
-              </div>
-            </div>
-            <div className="w-8 h-0.5 bg-gray-300" />
-
-            {/* SQL Agent */}
-            <div className="flex flex-col items-center">
-              <div className="w-16 h-16 bg-blue-100 rounded-lg flex flex-col items-center justify-center p-1">
-                <Cpu className="h-5 w-5 text-blue-600" />
-                <span className="text-xs font-medium text-blue-700 mt-1">SQL</span>
-              </div>
-            </div>
-            <div className="w-8 h-0.5 bg-gray-300" />
-
-            {/* Classifier Agent */}
-            <div className="flex flex-col items-center">
-              <div className="w-16 h-16 bg-purple-100 rounded-lg flex flex-col items-center justify-center p-1">
-                <Activity className="h-5 w-5 text-purple-600" />
-                <span className="text-xs font-medium text-purple-700 mt-1">Classify</span>
-              </div>
-            </div>
-            <div className="w-8 h-0.5 bg-gray-300" />
-
-            {/* Decision Node */}
-            <div className="flex flex-col items-center">
-              <div className="w-16 h-16 bg-amber-100 rounded-lg flex flex-col items-center justify-center p-1 rotate-45">
-                <span className="text-xs font-medium text-amber-700 -rotate-45">HITL?</span>
-              </div>
-            </div>
-            <div className="w-8 h-0.5 bg-gray-300" />
-
-            {/* Executor Agent */}
-            <div className="flex flex-col items-center">
-              <div className="w-16 h-16 bg-green-100 rounded-lg flex flex-col items-center justify-center p-1">
-                <Zap className="h-5 w-5 text-green-600" />
-                <span className="text-xs font-medium text-green-700 mt-1">Execute</span>
-              </div>
-            </div>
-            <div className="w-8 h-0.5 bg-gray-300" />
-
-            {/* Presenter */}
-            <div className="flex flex-col items-center">
-              <div className="w-16 h-16 bg-pink-100 rounded-lg flex flex-col items-center justify-center p-1">
-                <Bot className="h-5 w-5 text-pink-600" />
-                <span className="text-xs font-medium text-pink-700 mt-1">Present</span>
-              </div>
-            </div>
-            <div className="w-8 h-0.5 bg-gray-300" />
-
-            {/* End */}
-            <div className="flex flex-col items-center">
-              <div className="w-12 h-12 bg-gray-800 rounded-full flex items-center justify-center">
-                <span className="text-xs font-medium text-white">END</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
+      {/* LangGraph Workflow Diagram with Mermaid */}
+      <WorkflowDiagram />
 
       {/* Recent Interactions */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
