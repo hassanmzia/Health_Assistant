@@ -171,7 +171,7 @@ export default function WorkflowDiagram({ className }: WorkflowDiagramProps) {
         // Different sizes for each diagram type
         const sizeMap: Record<DiagramType, string> = {
           workflow: '25%',    // LangGraph Workflow - smallest
-          sequence: '37.5%',  // Agent Sequence - 50% larger than workflow
+          sequence: '75%',    // Agent Sequence - doubled
           decision: '31.25%', // Decision Tree - 25% larger than workflow
         }
         svgElement.style.maxWidth = sizeMap[diagramType] || '25%'
