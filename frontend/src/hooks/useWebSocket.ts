@@ -2,6 +2,7 @@ import { useCallback, useRef } from 'react'
 import { io, Socket } from 'socket.io-client'
 import { useStore } from '../store'
 import { ApprovalTask } from '../types'
+import { generateUUID } from '../utils/uuid'
 
 const WS_URL = import.meta.env.VITE_WS_URL || `${window.location.protocol}//${window.location.host}`
 
@@ -43,7 +44,7 @@ export function useWebSocket() {
       setLoading(false)
 
       const approval: ApprovalTask = {
-        taskId: data.taskId || crypto.randomUUID(),
+        taskId: data.taskId || generateUUID(),
         sessionId: data.sessionId,
         naturalLanguageQuery: data.query || '',
         generatedSql: data.generatedSql,
@@ -57,7 +58,7 @@ export function useWebSocket() {
       setCurrentApproval(approval)
 
       addMessage({
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         role: 'system',
         content: `**Approval Required**\n\nThis query requires human approval before execution.\n\n**Generated SQL:**\n\`\`\`sql\n${data.generatedSql}\n\`\`\`\n\n**Risk Assessment:** ${data.riskAssessment}`,
         timestamp: new Date(),
@@ -75,7 +76,7 @@ export function useWebSocket() {
       setCurrentApproval(null)
 
       addMessage({
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         role: 'assistant',
         content: data.result || 'Query completed.',
         timestamp: new Date(),
@@ -93,7 +94,7 @@ export function useWebSocket() {
 
       const statusEmoji = data.decision === 'APPROVED' ? '✓' : '✗'
       addMessage({
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         role: 'system',
         content: `**Decision: ${data.decision}** ${statusEmoji}\n\nReviewer: ${data.reviewerId}\n\n${data.result || ''}`,
         timestamp: new Date(),
@@ -108,7 +109,7 @@ export function useWebSocket() {
       setLoading(false)
 
       addMessage({
-        id: crypto.randomUUID(),
+        id: generateUUID(),
         role: 'system',
         content: `**Error:** ${data.message}`,
         timestamp: new Date(),
