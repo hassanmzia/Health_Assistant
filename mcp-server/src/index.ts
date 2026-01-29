@@ -105,6 +105,7 @@ app.get('/schema', async (req, res) => {
         is_nullable
       FROM information_schema.columns
       WHERE table_schema = 'public'
+        AND table_name LIKE 'fhir_%'
       ORDER BY table_name, ordinal_position
     `);
 

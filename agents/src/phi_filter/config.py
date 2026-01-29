@@ -79,6 +79,30 @@ SENSITIVE_COLUMNS: Dict[str, MaskingLevel] = {
 
     # Other Identifiers
     "ID": MaskingLevel.PARTIAL,  # UUID - show partial
+
+    # FHIR-specific columns
+    "IDENTIFIER_SSN": MaskingLevel.FULL,
+    "IDENTIFIER_PASSPORT": MaskingLevel.FULL,
+    "IDENTIFIER_DRIVERS_LICENSE": MaskingLevel.FULL,
+    "IDENTIFIER_MRN": MaskingLevel.FULL,
+    "NAME_GIVEN": MaskingLevel.PARTIAL,
+    "NAME_FAMILY": MaskingLevel.PARTIAL,
+    "NAME_MAIDEN": MaskingLevel.PARTIAL,
+    "NAME_PREFIX": MaskingLevel.PARTIAL,
+    "NAME_SUFFIX": MaskingLevel.PARTIAL,
+    "BIRTH_DATE": MaskingLevel.PARTIAL,
+    "DECEASED_DATE_TIME": MaskingLevel.PARTIAL,
+    "ADDRESS_LINE": MaskingLevel.FULL,
+    "ADDRESS_CITY": MaskingLevel.PARTIAL,
+    "ADDRESS_POSTAL_CODE": MaskingLevel.PARTIAL,
+    "ADDRESS_LATITUDE": MaskingLevel.FULL,
+    "ADDRESS_LONGITUDE": MaskingLevel.FULL,
+    "TELECOM_PHONE_HOME": MaskingLevel.FULL,
+    "TELECOM_PHONE_MOBILE": MaskingLevel.FULL,
+    "TELECOM_PHONE_WORK": MaskingLevel.FULL,
+    "TELECOM_PHONE": MaskingLevel.FULL,
+    "TELECOM_EMAIL": MaskingLevel.FULL,
+    "IDENTIFIER_NPI": MaskingLevel.PARTIAL,
 }
 
 # Columns that should NEVER be returned (block query if selected)
@@ -88,6 +112,10 @@ BLOCKED_COLUMNS: Set[str] = {
     "PASSPORT",
     "DRIVERS",
     "DRIVERS_LICENSE",
+    # FHIR equivalents
+    "IDENTIFIER_SSN",
+    "IDENTIFIER_PASSPORT",
+    "IDENTIFIER_DRIVERS_LICENSE",
 }
 
 # Columns that require HITL approval to access
@@ -98,6 +126,17 @@ HITL_REQUIRED_COLUMNS: Set[str] = {
     "ADDRESS",
     "PHONE",
     "EMAIL",
+    # FHIR equivalents
+    "NAME_GIVEN",
+    "NAME_FAMILY",
+    "NAME_MAIDEN",
+    "BIRTH_DATE",
+    "TELECOM_EMAIL",
+    "TELECOM_PHONE_HOME",
+    "TELECOM_PHONE_MOBILE",
+    "TELECOM_PHONE_WORK",
+    "ADDRESS_LINE",
+    "IDENTIFIER_MRN",
 }
 
 
