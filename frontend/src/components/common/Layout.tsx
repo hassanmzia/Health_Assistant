@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation } from 'react-router-dom'
-import { MessageSquare, LayoutDashboard, Shield, Activity, Bot } from 'lucide-react'
+import { MessageSquare, LayoutDashboard, Shield, Activity, Bot, Eye } from 'lucide-react'
 import { useStore } from '../../store'
 import { clsx } from 'clsx'
 
@@ -12,6 +12,7 @@ export default function Layout() {
     { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { path: '/hitl', label: 'Approvals', icon: Shield, badge: pendingApprovals.length },
     { path: '/agents', label: 'Agents', icon: Bot },
+    { path: '/observability', label: 'Observability', icon: Eye },
   ]
 
   return (
