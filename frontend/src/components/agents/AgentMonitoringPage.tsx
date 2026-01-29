@@ -4,7 +4,35 @@ import axios from 'axios'
 import { clsx } from 'clsx'
 
 const API_URL = import.meta.env.VITE_API_URL || '/api'
-const AGENT_URL = import.meta.env.VITE_AGENT_URL || 'http://localhost:18001'
+
+// Default agent definitions (these are static and well-known)
+const DEFAULT_AGENTS: Agent[] = [
+  {
+    name: 'sql_agent',
+    description: 'Generates SQL from natural language',
+    capabilities: ['generate_sql', 'validate_sql', 'optimize_sql']
+  },
+  {
+    name: 'classifier_agent',
+    description: 'Classifies queries and assesses risk',
+    capabilities: ['classify_query', 'assess_risk', 'check_guardrails']
+  },
+  {
+    name: 'hitl_agent',
+    description: 'Manages human-in-the-loop approvals',
+    capabilities: ['request_approval', 'process_decision', 'escalate']
+  },
+  {
+    name: 'executor_agent',
+    description: 'Executes SQL and formats results',
+    capabilities: ['execute_query', 'format_results', 'handle_errors']
+  },
+  {
+    name: 'presenter_agent',
+    description: 'Summarizes results in natural language',
+    capabilities: ['summarize', 'format', 'highlight_important']
+  }
+]
 
 interface Agent {
   name: string
@@ -47,17 +75,8 @@ export default function AgentMonitoringPage() {
 
   const fetchData = async () => {
     try {
-      // Fetch agents list
-      const agentsResponse = await axios.get(`${AGENT_URL}/agents`).catch(() => null)
-      if (agentsResponse?.data?.agents) {
-        setAgents(agentsResponse.data.agents)
-        // Set all agents as healthy since we got a response
-        const health: Record<string, 'healthy' | 'unhealthy' | 'unknown'> = {}
-        agentsResponse.data.agents.forEach((agent: Agent) => {
-          health[agent.name] = 'healthy'
-        })
-        setAgentHealth(health)
-      }
+      // Use default agents list
+      setAgents(DEFAULT_AGENTS)
 
       // Fetch agent interactions from backend
       const interactionsResponse = await axios.get(`${API_URL}/agents/interactions/`).catch(() => null)
@@ -69,6 +88,28 @@ export default function AgentMonitoringPage() {
       const statsResponse = await axios.get(`${API_URL}/agents/stats/`).catch(() => null)
       if (statsResponse?.data) {
         setStats(statsResponse.data)
+
+        // Determine agent health based on recent activity
+        const health: Record<string, 'healthy' | 'unhealthy' | 'unknown'> = {}
+        const activeAgents = statsResponse.data.by_agent || {}
+
+        DEFAULT_AGENTS.forEach((agent) => {
+          // Check if agent has had any interactions
+          // Map receiver_agent names to agent names
+          const agentNames = [agent.name, agent.name.replace('_agent', '')]
+          const hasActivity = Object.keys(activeAgents).some(key =>
+            agentNames.some(name => key.includes(name) || key === 'orchestrator')
+          )
+          health[agent.name] = hasActivity || statsResponse.data.total_interactions > 0 ? 'healthy' : 'unknown'
+        })
+        setAgentHealth(health)
+      } else {
+        // No stats, set all as unknown
+        const health: Record<string, 'healthy' | 'unhealthy' | 'unknown'> = {}
+        DEFAULT_AGENTS.forEach((agent) => {
+          health[agent.name] = 'unknown'
+        })
+        setAgentHealth(health)
       }
     } catch (error) {
       console.error('Failed to fetch agent data:', error)
@@ -90,6 +131,8 @@ export default function AgentMonitoringPage() {
       hitl_agent: CheckCircle2,
       executor_agent: Zap,
       presenter_agent: Bot,
+      mcp_server: Activity,
+      orchestrator: Bot,
     }
     return icons[agentName] || Bot
   }
@@ -101,6 +144,8 @@ export default function AgentMonitoringPage() {
       hitl_agent: 'bg-amber-500',
       executor_agent: 'bg-green-500',
       presenter_agent: 'bg-pink-500',
+      mcp_server: 'bg-cyan-500',
+      orchestrator: 'bg-indigo-500',
     }
     return colors[agentName] || 'bg-gray-500'
   }
