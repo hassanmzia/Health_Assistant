@@ -180,17 +180,21 @@ class HealthcareOrchestrator:
         toxicity_result = check_query_toxicity(user_query)
         duration = int((time.time() - start_time) * 1000)
 
-        # Log the toxicity check
+        # Log the toxicity check with human-readable details
         await self._log_agent_interaction(
             session_id=session_id,
             sender_agent="orchestrator",
             receiver_agent="toxicity_filter",
             capability="check_toxicity",
-            payload={"query_length": len(user_query)},
+            payload={
+                "action": "Checking query for harmful or inappropriate content",
+                "user_query": user_query[:200]
+            },
             response={
-                "is_toxic": toxicity_result['is_toxic'],
-                "toxicity_score": toxicity_result['toxicity_score'],
-                "should_block": toxicity_result['should_block']
+                "result": "PASSED - Query is safe" if not toxicity_result['is_toxic'] else "FLAGGED - Potential policy violation",
+                "toxicity_score": f"{toxicity_result['toxicity_score']}/10",
+                "decision": "Blocked" if toxicity_result['should_block'] else "Approved to continue",
+                "violations": toxicity_result.get('violations', [])
             },
             duration_ms=duration,
             success=not toxicity_result['should_block']
@@ -233,13 +237,20 @@ class HealthcareOrchestrator:
                 response = await client.get(f"{self.mcp_url}/schema", timeout=10.0)
                 schema = response.json()
                 duration = int((time.time() - start_time) * 1000)
+                tables = list(schema.get('schema', {}).keys())
                 await self._log_agent_interaction(
                     session_id=session_id,
                     sender_agent="orchestrator",
                     receiver_agent="mcp_server",
                     capability="fetch_schema",
-                    payload={"url": f"{self.mcp_url}/schema"},
-                    response={"tables": list(schema.get('schema', {}).keys())},
+                    payload={
+                        "action": "Fetching database schema to understand available tables and columns"
+                    },
+                    response={
+                        "result": f"Successfully retrieved schema with {len(tables)} tables",
+                        "available_tables": tables,
+                        "description": f"Database contains: {', '.join(tables[:5])}{'...' if len(tables) > 5 else ''}"
+                    },
                     duration_ms=duration,
                     success=True
                 )
@@ -268,14 +279,23 @@ class HealthcareOrchestrator:
         duration = int((time.time() - start_time) * 1000)
         confidence = result.get("confidence", 0.8)
 
-        # Log agent interaction
+        # Log agent interaction with human-readable details
+        sql_type = "SELECT (read)" if result["sql"].upper().strip().startswith("SELECT") else "WRITE operation"
         await self._log_agent_interaction(
             session_id=session_id,
             sender_agent="orchestrator",
             receiver_agent="sql_agent",
             capability="generate_sql",
-            payload={"query": state["user_query"]},
-            response={"sql": result["sql"][:200], "confidence": confidence},
+            payload={
+                "action": "Converting natural language question to SQL query",
+                "user_question": state["user_query"]
+            },
+            response={
+                "result": f"Generated {sql_type} query with {confidence:.0%} confidence",
+                "generated_sql": result["sql"],
+                "confidence": f"{confidence:.0%}",
+                "rationale": f"Translated '{state['user_query'][:50]}...' into executable SQL"
+            },
             duration_ms=duration,
             success=True
         )
@@ -307,13 +327,24 @@ class HealthcareOrchestrator:
         query_type = result["query_type"]
         risk_score = result["risk_score"]
 
+        risk_level = "LOW" if risk_score < 0.3 else "MEDIUM" if risk_score < 0.7 else "HIGH"
         await self._log_agent_interaction(
             session_id=session_id,
             sender_agent="orchestrator",
             receiver_agent="classifier_agent",
             capability="classify_query",
-            payload={"sql": state["generated_sql"][:100]},
-            response={"query_type": query_type, "risk_score": risk_score},
+            payload={
+                "action": "Analyzing SQL query for type and risk level",
+                "sql_to_analyze": state["generated_sql"]
+            },
+            response={
+                "result": f"Classified as {query_type} with {risk_level} risk",
+                "query_type": query_type,
+                "risk_level": risk_level,
+                "risk_score": f"{risk_score:.0%}",
+                "assessment": result["risk_assessment"],
+                "next_step": "Auto-execute" if query_type == "READ" else "Requires HITL approval" if query_type == "WRITE" else "BLOCKED"
+            },
             duration_ms=duration,
             success=True
         )
@@ -354,10 +385,18 @@ class HealthcareOrchestrator:
         await self._log_agent_interaction(
             session_id=session_id,
             sender_agent="orchestrator",
-            receiver_agent="classifier_agent",
+            receiver_agent="guardrail_agent",
             capability="check_guardrails",
-            payload={"sql": state["generated_sql"][:100]},
-            response={"violations": violations},
+            payload={
+                "action": "Checking SQL against security guardrails and PHI protections",
+                "checks_performed": ["SQL injection", "DROP/TRUNCATE", "System tables", "PHI columns", "Data minimization"]
+            },
+            response={
+                "result": "PASSED - All guardrails satisfied" if passed else f"BLOCKED - {len(violations)} violation(s) found",
+                "passed": passed,
+                "violations": violations if violations else "None",
+                "rationale": "Query is safe to execute" if passed else f"Blocked due to: {', '.join(violations[:3])}"
+            },
             duration_ms=duration,
             success=passed
         )
@@ -480,14 +519,24 @@ class HealthcareOrchestrator:
         result = await self.executor_agent.execute(state["generated_sql"])
         execution_time = int((time.time() - start_time) * 1000)
 
-        # Log executor interaction
+        # Log executor interaction with human-readable details
+        row_count = result.get("row_count", 0)
+        phi_masked = result.get("phi_masked", False)
         await self._log_agent_interaction(
             session_id=session_id,
             sender_agent="orchestrator",
             receiver_agent="executor_agent",
             capability="execute_sql",
-            payload={"sql": state["generated_sql"][:100]},
-            response={"row_count": result.get("row_count", 0), "error": result.get("error")},
+            payload={
+                "action": "Executing SQL query against healthcare database",
+                "sql_executed": state["generated_sql"]
+            },
+            response={
+                "result": f"Query executed successfully, returned {row_count} row(s)" if not result.get("error") else f"Query failed: {result.get('error')}",
+                "row_count": row_count,
+                "phi_masked": "Yes - Sensitive data masked" if phi_masked else "No PHI detected",
+                "data_preview": str(result.get("data", ""))[:300] + "..." if result.get("data") else "No data"
+            },
             duration_ms=execution_time,
             success=not result.get("error"),
             error=result.get("error")
@@ -549,8 +598,16 @@ Provide a clear summary for the medical professional.""")
                 sender_agent="orchestrator",
                 receiver_agent="presenter_agent",
                 capability="summarize_results",
-                payload={"results_length": len(str(state["execution_result"]))},
-                response={"summary_length": len(response.content)},
+                payload={
+                    "action": "Summarizing query results in clinical language for healthcare professionals",
+                    "original_question": state["user_query"],
+                    "raw_data_preview": str(state["execution_result"])[:200] + "..." if len(str(state["execution_result"])) > 200 else str(state["execution_result"])
+                },
+                response={
+                    "result": "Successfully generated human-readable summary",
+                    "summary": response.content,
+                    "rationale": "Converted raw database results into clear clinical language with bullet points for key findings"
+                },
                 duration_ms=duration,
                 success=True
             )
