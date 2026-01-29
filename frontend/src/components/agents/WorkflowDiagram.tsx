@@ -165,13 +165,11 @@ export default function WorkflowDiagram({ className }: WorkflowDiagramProps) {
       const { svg } = await mermaid.render(`mermaid-${Date.now()}`, diagram)
       containerRef.current.innerHTML = svg
 
-      // Make SVG responsive and smaller
+      // Make SVG responsive and smaller (scaled down but fully visible)
       const svgElement = containerRef.current.querySelector('svg')
       if (svgElement) {
-        svgElement.style.maxWidth = '100%'
+        svgElement.style.maxWidth = '50%'
         svgElement.style.height = 'auto'
-        svgElement.style.transform = 'scale(0.6)'
-        svgElement.style.transformOrigin = 'top center'
       }
     } catch (err) {
       console.error('Mermaid render error:', err)
@@ -273,7 +271,7 @@ export default function WorkflowDiagram({ className }: WorkflowDiagramProps) {
         ) : (
           <div
             ref={containerRef}
-            className="flex items-center justify-center min-h-[250px] max-h-[350px] overflow-hidden"
+            className="flex items-center justify-center min-h-[300px]"
           />
         )}
       </div>
