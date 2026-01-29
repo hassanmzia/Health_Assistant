@@ -6,6 +6,7 @@ from rest_framework import status
 from django.utils import timezone
 
 from .models import ApprovalTask, ApprovalTaskStatus
+from healthcare_api.apps.audit.models import AuditLog
 
 
 @api_view(['GET'])
@@ -124,14 +125,25 @@ def reject_task(request, task_id):
 
 @api_view(['GET'])
 def task_history(request):
-    """Get history of all approval tasks"""
-    reviewer_id = request.query_params.get('reviewer')
-    tasks = ApprovalTask.objects.all()
+    """Get history of all approval tasks from audit log"""
+    # Read from audit_log for WRITE queries that went through HITL
+    logs = AuditLog.objects.filter(query_type='WRITE').order_by('-timestamp')[:100]
 
-    if reviewer_id:
-        tasks = tasks.filter(reviewer_id=reviewer_id)
+    data = []
+    for log in logs:
+        data.append({
+            'taskId': str(log.id),
+            'sessionId': log.session_id,
+            'naturalLanguageQuery': log.natural_language_query,
+            'generatedSql': log.sql_statement,
+            'queryType': log.query_type,
+            'riskScore': log.risk_score or 0.5,
+            'riskAssessment': '',
+            'status': log.classification,
+            'reviewerId': log.reviewer_id,
+            'createdAt': log.timestamp.isoformat() if log.timestamp else None,
+        })
 
-    data = list(tasks[:100].values())
     return Response(data)
 
 
