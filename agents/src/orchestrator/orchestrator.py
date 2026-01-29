@@ -6,6 +6,7 @@ LangGraph-based workflow for healthcare query processing
 import os
 import json
 import time
+import uuid
 from datetime import datetime
 from typing import Optional, Dict, Any
 
@@ -59,6 +60,45 @@ class HealthcareOrchestrator:
         self.checkpointer = MemorySaver()
         self.graph = self._build_graph()
 
+    async def _log_agent_interaction(
+        self,
+        session_id: str,
+        sender_agent: str,
+        receiver_agent: str,
+        capability: str,
+        message_type: str = "request",
+        payload: Dict = None,
+        response: Dict = None,
+        duration_ms: int = 0,
+        success: bool = True,
+        error: str = None
+    ):
+        """Log agent-to-agent interaction to the database"""
+        try:
+            conn = await asyncpg.connect(self.database_url)
+            await conn.execute("""
+                INSERT INTO agent_interactions (
+                    timestamp, session_id, correlation_id, sender_agent, receiver_agent,
+                    message_type, capability, payload, response, duration_ms, success, error
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+            """,
+                datetime.now(),
+                session_id,
+                str(uuid.uuid4()),
+                sender_agent,
+                receiver_agent,
+                message_type,
+                capability,
+                json.dumps(payload or {}),
+                json.dumps(response or {}),
+                duration_ms,
+                success,
+                error
+            )
+            await conn.close()
+        except Exception as e:
+            print(f"Failed to log agent interaction: {e}")
+
     def _build_graph(self) -> StateGraph:
         """Build the LangGraph workflow"""
         builder = StateGraph(HealthcareState)
@@ -111,19 +151,55 @@ class HealthcareOrchestrator:
 
     async def _fetch_schema(self, state: HealthcareState) -> Dict[str, Any]:
         """Fetch database schema from MCP server"""
+        start_time = time.time()
+        session_id = state.get("session_id", "unknown")
         try:
             async with httpx.AsyncClient() as client:
                 response = await client.get(f"{self.mcp_url}/schema", timeout=10.0)
                 schema = response.json()
+                duration = int((time.time() - start_time) * 1000)
+                await self._log_agent_interaction(
+                    session_id=session_id,
+                    sender_agent="orchestrator",
+                    receiver_agent="mcp_server",
+                    capability="fetch_schema",
+                    payload={"url": f"{self.mcp_url}/schema"},
+                    response={"tables": list(schema.get('schema', {}).keys())},
+                    duration_ms=duration,
+                    success=True
+                )
                 return {"schema_context": json.dumps(schema.get('schema', {}), indent=2)}
         except Exception as e:
+            duration = int((time.time() - start_time) * 1000)
+            await self._log_agent_interaction(
+                session_id=session_id,
+                sender_agent="orchestrator",
+                receiver_agent="mcp_server",
+                capability="fetch_schema",
+                duration_ms=duration,
+                success=False,
+                error=str(e)
+            )
             return {"schema_context": "Schema unavailable", "error_message": str(e)}
 
     async def _generate_sql(self, state: HealthcareState) -> Dict[str, Any]:
         """Generate SQL from natural language"""
+        start_time = time.time()
+        session_id = state.get("session_id", "unknown")
         result = await self.sql_agent.generate(
             query=state["user_query"],
             schema_context=state.get("schema_context", "")
+        )
+        duration = int((time.time() - start_time) * 1000)
+        await self._log_agent_interaction(
+            session_id=session_id,
+            sender_agent="orchestrator",
+            receiver_agent="sql_agent",
+            capability="generate_sql",
+            payload={"query": state["user_query"]},
+            response={"sql": result["sql"][:200], "confidence": result.get("confidence", 0.8)},
+            duration_ms=duration,
+            success=True
         )
         return {
             "generated_sql": result["sql"],
@@ -132,7 +208,20 @@ class HealthcareOrchestrator:
 
     async def _classify_query(self, state: HealthcareState) -> Dict[str, Any]:
         """Classify query type and assess risk"""
+        start_time = time.time()
+        session_id = state.get("session_id", "unknown")
         result = await self.classifier_agent.classify(state["generated_sql"])
+        duration = int((time.time() - start_time) * 1000)
+        await self._log_agent_interaction(
+            session_id=session_id,
+            sender_agent="orchestrator",
+            receiver_agent="classifier_agent",
+            capability="classify_query",
+            payload={"sql": state["generated_sql"][:100]},
+            response={"query_type": result["query_type"], "risk_score": result["risk_score"]},
+            duration_ms=duration,
+            success=True
+        )
         return {
             "query_type": result["query_type"],
             "risk_score": result["risk_score"],
@@ -141,7 +230,20 @@ class HealthcareOrchestrator:
 
     async def _check_guardrails(self, state: HealthcareState) -> Dict[str, Any]:
         """Check SQL against guardrails"""
+        start_time = time.time()
+        session_id = state.get("session_id", "unknown")
         violations = await self.classifier_agent.check_guardrails(state["generated_sql"])
+        duration = int((time.time() - start_time) * 1000)
+        await self._log_agent_interaction(
+            session_id=session_id,
+            sender_agent="orchestrator",
+            receiver_agent="classifier_agent",
+            capability="check_guardrails",
+            payload={"sql": state["generated_sql"][:100]},
+            response={"violations": violations},
+            duration_ms=duration,
+            success=len(violations) == 0
+        )
         return {"guardrail_violations": violations}
 
     def _route_after_guardrails(self, state: HealthcareState) -> str:
@@ -160,6 +262,9 @@ class HealthcareOrchestrator:
 
     async def _hitl_gate(self, state: HealthcareState) -> Dict[str, Any]:
         """Human-in-the-loop approval gate"""
+        start_time = time.time()
+        session_id = state.get("session_id", "unknown")
+
         # Create approval request
         await self.hitl_agent.create_approval_request(
             session_id=state["session_id"],
@@ -168,6 +273,18 @@ class HealthcareOrchestrator:
             query_type=state["query_type"],
             risk_score=state.get("risk_score", 0.5),
             risk_assessment=state.get("risk_assessment", "")
+        )
+
+        # Log HITL request
+        await self._log_agent_interaction(
+            session_id=session_id,
+            sender_agent="orchestrator",
+            receiver_agent="hitl_agent",
+            capability="request_approval",
+            message_type="request",
+            payload={"query_type": state["query_type"], "risk_score": state.get("risk_score", 0.5)},
+            duration_ms=int((time.time() - start_time) * 1000),
+            success=True
         )
 
         # Interrupt workflow for human decision
@@ -186,6 +303,19 @@ class HealthcareOrchestrator:
         decision = human_decision.get("decision", "REJECTED")
         reviewer_id = human_decision.get("reviewer_id", "unknown")
         notes = human_decision.get("notes", "")
+
+        # Log HITL decision
+        await self._log_agent_interaction(
+            session_id=session_id,
+            sender_agent="hitl_agent",
+            receiver_agent="orchestrator",
+            capability="process_decision",
+            message_type="response",
+            payload={"decision": decision, "reviewer_id": reviewer_id},
+            response={"approved": decision.upper() == "APPROVED"},
+            duration_ms=0,
+            success=True
+        )
 
         if decision.upper() == "APPROVED":
             return {
@@ -211,8 +341,22 @@ class HealthcareOrchestrator:
     async def _execute_sql(self, state: HealthcareState) -> Dict[str, Any]:
         """Execute the SQL query"""
         start_time = time.time()
+        session_id = state.get("session_id", "unknown")
         result = await self.executor_agent.execute(state["generated_sql"])
         execution_time = int((time.time() - start_time) * 1000)
+
+        # Log executor interaction
+        await self._log_agent_interaction(
+            session_id=session_id,
+            sender_agent="orchestrator",
+            receiver_agent="executor_agent",
+            capability="execute_sql",
+            payload={"sql": state["generated_sql"][:100]},
+            response={"row_count": result.get("row_count", 0), "error": result.get("error")},
+            duration_ms=execution_time,
+            success=not result.get("error"),
+            error=result.get("error")
+        )
 
         if result.get("error"):
             return {
@@ -233,6 +377,9 @@ class HealthcareOrchestrator:
 
     async def _present_results(self, state: HealthcareState) -> Dict[str, Any]:
         """Format results for presentation"""
+        start_time = time.time()
+        session_id = state.get("session_id", "unknown")
+
         if state.get("error_message"):
             return {"execution_result": f"Query failed: {state['error_message']}"}
 
@@ -261,8 +408,29 @@ Provide a clear summary for the medical professional.""")
                 "sql": state["generated_sql"],
                 "results": state["execution_result"]
             })
+            duration = int((time.time() - start_time) * 1000)
+            await self._log_agent_interaction(
+                session_id=session_id,
+                sender_agent="orchestrator",
+                receiver_agent="presenter_agent",
+                capability="summarize_results",
+                payload={"results_length": len(str(state["execution_result"]))},
+                response={"summary_length": len(response.content)},
+                duration_ms=duration,
+                success=True
+            )
             return {"execution_result": response.content}
-        except Exception:
+        except Exception as e:
+            duration = int((time.time() - start_time) * 1000)
+            await self._log_agent_interaction(
+                session_id=session_id,
+                sender_agent="orchestrator",
+                receiver_agent="presenter_agent",
+                capability="summarize_results",
+                duration_ms=duration,
+                success=False,
+                error=str(e)
+            )
             return state
 
     async def _handle_rejection(self, state: HealthcareState) -> Dict[str, Any]:
