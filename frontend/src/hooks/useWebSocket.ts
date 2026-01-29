@@ -1,4 +1,4 @@
-import { useCallback, useRef } from 'react'
+import { useCallback } from 'react'
 import { io, Socket } from 'socket.io-client'
 import { useStore } from '../store'
 import { ApprovalTask } from '../types'
@@ -6,8 +6,10 @@ import { generateUUID } from '../utils/uuid'
 
 const WS_URL = import.meta.env.VITE_WS_URL || `${window.location.protocol}//${window.location.host}`
 
+// Singleton socket instance shared across all hook calls
+let socket: Socket | null = null
+
 export function useWebSocket() {
-  const socketRef = useRef<Socket | null>(null)
   const {
     addMessage,
     setCurrentApproval,
@@ -16,18 +18,18 @@ export function useWebSocket() {
   } = useStore()
 
   const connect = useCallback((sessionId: string) => {
-    if (socketRef.current?.connected) {
+    if (socket?.connected) {
       return
     }
 
-    const socket = io(WS_URL, {
+    socket = io(WS_URL, {
       transports: ['websocket'],
     })
 
     socket.on('connect', () => {
       console.log('WebSocket connected')
       setConnected(true)
-      socket.emit('join_session', sessionId)
+      socket?.emit('join_session', sessionId)
     })
 
     socket.on('disconnect', () => {
@@ -115,21 +117,23 @@ export function useWebSocket() {
         timestamp: new Date(),
       })
     })
-
-    socketRef.current = socket
   }, [addMessage, setCurrentApproval, setConnected, setLoading])
 
   const disconnect = useCallback(() => {
-    if (socketRef.current) {
-      socketRef.current.disconnect()
-      socketRef.current = null
+    if (socket) {
+      socket.disconnect()
+      socket = null
     }
   }, [])
 
   const sendQuery = useCallback((query: string, sessionId: string, userId: string) => {
-    if (socketRef.current?.connected) {
+    console.log('sendQuery called, socket connected:', socket?.connected)
+    if (socket?.connected) {
       setLoading(true)
-      socketRef.current.emit('submit_query', { query, sessionId, userId })
+      socket.emit('submit_query', { query, sessionId, userId })
+      console.log('Emitted submit_query')
+    } else {
+      console.log('Socket not connected, cannot send query')
     }
   }, [setLoading])
 
@@ -139,9 +143,9 @@ export function useWebSocket() {
     reviewerId: string,
     notes: string = ''
   ) => {
-    if (socketRef.current?.connected) {
+    if (socket?.connected) {
       setLoading(true)
-      socketRef.current.emit('submit_decision', {
+      socket.emit('submit_decision', {
         sessionId,
         decision,
         reviewerId,
@@ -155,6 +159,6 @@ export function useWebSocket() {
     disconnect,
     sendQuery,
     sendDecision,
-    isConnected: socketRef.current?.connected || false,
+    isConnected: socket?.connected || false,
   }
 }
