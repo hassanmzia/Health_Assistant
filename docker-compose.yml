@@ -55,7 +55,6 @@ services:
       - AGENT_ORCHESTRATOR_URL=http://agents:8001
       - WS_SERVER_URL=http://ws-server:3002
     volumes:
-      - ./backend:/app
       - backend_static:/app/staticfiles
     ports:
       - "18000:8000"
@@ -83,9 +82,6 @@ services:
       - PORT=3001
       - DATABASE_URL=postgresql://healthcare_user:healthcare_secure_pass_2024@postgres:5432/healthcare_db
       - REDIS_URL=redis://redis:6379/1
-    volumes:
-      - ./mcp-server:/app
-      - /app/node_modules
     ports:
       - "13001:3001"
     depends_on:
@@ -116,8 +112,6 @@ services:
       - BACKEND_URL=http://backend:8000
       - WS_SERVER_URL=http://ws-server:3002
       - A2A_PORT=8001
-    volumes:
-      - ./agents:/app
     ports:
       - "18001:8001"
     depends_on:
@@ -144,9 +138,6 @@ services:
       - REDIS_URL=redis://redis:6379/3
       - BACKEND_URL=http://backend:8000
       - AGENT_URL=http://agents:8001
-    volumes:
-      - ./ws-server:/app
-      - /app/node_modules
     ports:
       - "13002:3002"
     depends_on:
