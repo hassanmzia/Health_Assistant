@@ -1,5 +1,5 @@
 import { Outlet, Link, useLocation } from 'react-router-dom'
-import { MessageSquare, LayoutDashboard, Shield, Activity, Bot, Eye } from 'lucide-react'
+import { MessageSquare, LayoutDashboard, Shield, Activity, Bot, Eye, Database } from 'lucide-react'
 import { useStore } from '../../store'
 import { clsx } from 'clsx'
 
@@ -13,6 +13,7 @@ export default function Layout() {
     { path: '/hitl', label: 'Approvals', icon: Shield, badge: pendingApprovals.length },
     { path: '/agents', label: 'Agents', icon: Bot },
     { path: '/observability', label: 'Observability', icon: Eye },
+    { path: '/fhir', label: 'FHIR Data', icon: Database },
   ]
 
   return (
@@ -31,7 +32,9 @@ export default function Layout() {
             <nav className="flex space-x-4">
               {navItems.map((item) => {
                 const Icon = item.icon
-                const isActive = location.pathname === item.path
+                const isActive = item.path === '/'
+                  ? location.pathname === '/'
+                  : location.pathname.startsWith(item.path)
                 return (
                   <Link
                     key={item.path}

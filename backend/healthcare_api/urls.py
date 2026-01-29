@@ -22,4 +22,5 @@ urlpatterns = [
     path('api/agents/', include('healthcare_api.apps.agents.urls')),
     path('api/hitl/', include('healthcare_api.apps.hitl.urls')),
     path('api/observability/', include(observability_urlpatterns)),
+    path('api/fhir/', include('healthcare_api.apps.fhir.urls')),
 ]
