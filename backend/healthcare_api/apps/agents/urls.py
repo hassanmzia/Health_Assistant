@@ -3,10 +3,11 @@ from django.urls import path
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
+from django.db.models import Count, Avg
 import httpx
 import os
 
-from healthcare_api.apps.audit.models import AuditLog
+from healthcare_api.apps.audit.models import AuditLog, AgentInteraction
 
 
 @api_view(['POST'])
@@ -105,9 +106,52 @@ def agent_status(request, agent_name):
         )
 
 
+@api_view(['GET'])
+def agent_interactions(request):
+    """Get recent agent-to-agent interactions"""
+    limit = int(request.query_params.get('limit', 50))
+    interactions = AgentInteraction.objects.all()[:limit]
+    data = []
+    for interaction in interactions:
+        data.append({
+            'id': interaction.id,
+            'timestamp': interaction.timestamp.isoformat(),
+            'session_id': interaction.session_id,
+            'sender_agent': interaction.sender_agent,
+            'receiver_agent': interaction.receiver_agent,
+            'message_type': interaction.message_type,
+            'capability': interaction.capability,
+            'duration_ms': interaction.duration_ms or 0,
+            'success': interaction.success,
+        })
+    return Response(data)
+
+
+@api_view(['GET'])
+def agent_stats(request):
+    """Get agent interaction statistics"""
+    total = AgentInteraction.objects.count()
+    success_count = AgentInteraction.objects.filter(success=True).count()
+    avg_duration = AgentInteraction.objects.aggregate(avg=Avg('duration_ms'))['avg'] or 0
+
+    by_agent = {}
+    agent_counts = AgentInteraction.objects.values('sender_agent').annotate(count=Count('id'))
+    for item in agent_counts:
+        by_agent[item['sender_agent']] = item['count']
+
+    return Response({
+        'total_interactions': total,
+        'success_rate': success_count / total if total > 0 else 1.0,
+        'avg_duration_ms': avg_duration,
+        'by_agent': by_agent,
+    })
+
+
 urlpatterns = [
     path('process/', process_query, name='process_query'),
     path('resume/', resume_query, name='resume_query'),
+    path('interactions/', agent_interactions, name='agent_interactions'),
+    path('stats/', agent_stats, name='agent_stats'),
     path('', list_agents, name='list_agents'),
     path('<str:agent_name>/', agent_status, name='agent_status'),
 ]

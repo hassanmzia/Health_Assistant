@@ -6,6 +6,7 @@ import Layout from './components/common/Layout'
 import ChatPage from './components/chat/ChatPage'
 import DashboardPage from './components/dashboard/DashboardPage'
 import HITLPage from './components/hitl/HITLPage'
+import AgentMonitoringPage from './components/agents/AgentMonitoringPage'
 
 function App() {
   const { connect, disconnect } = useWebSocket()
@@ -27,6 +28,7 @@ function App() {
           <Route index element={<ChatPage />} />
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="hitl" element={<HITLPage />} />
+          <Route path="agents" element={<AgentMonitoringPage />} />
         </Route>
       </Routes>
     </BrowserRouter>
