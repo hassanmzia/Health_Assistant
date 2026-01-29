@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import { Message, ApprovalTask } from '../types'
+import { generateUUID } from '../utils/uuid'
 
 interface AppState {
   // Session
@@ -30,7 +31,7 @@ interface AppState {
 
 export const useStore = create<AppState>((set) => ({
   // Initial state
-  sessionId: crypto.randomUUID(),
+  sessionId: generateUUID(),
   userId: 'user_' + Math.random().toString(36).substr(2, 9),
   messages: [],
   isLoading: false,

@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react'
 import { Send, Loader2 } from 'lucide-react'
 import { useStore } from '../../store'
 import { useWebSocket } from '../../hooks/useWebSocket'
+import { generateUUID } from '../../utils/uuid'
 import ChatMessage from './ChatMessage'
 import HITLApprovalPanel from '../hitl/HITLApprovalPanel'
 
@@ -26,7 +27,7 @@ export default function ChatPage() {
 
     // Add user message
     addMessage({
-      id: crypto.randomUUID(),
+      id: generateUUID(),
       role: 'user',
       content: input,
       timestamp: new Date(),
