@@ -40,6 +40,13 @@ RULES:
 - NEVER generate DROP, TRUNCATE, or ALTER statements
 - Use ILIKE for case-insensitive text matching
 
+INSERT STATEMENT RULES (CRITICAL):
+- For INSERT statements, ALWAYS use uuid_generate_v4() for the "Id" column
+- NEVER use DEFAULT for "Id" columns - the database requires explicit UUID values
+- Example: INSERT INTO "patients" ("Id", "FIRST", "LAST") VALUES (uuid_generate_v4(), 'John', 'Doe')
+- For date columns like BIRTHDATE, use proper date format: '1990-01-15'
+- If birthdate is not specified, use NULL
+
 OUTPUT: Return ONLY the SQL statement, no explanations."""
 
 
