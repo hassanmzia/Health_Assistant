@@ -168,12 +168,6 @@ services:
     container_name: healthcare_frontend
     environment:
       - NODE_ENV=production
-      - VITE_API_URL=http://localhost:18000/api
-      - VITE_WS_URL=ws://localhost:13002
-      - VITE_MCP_URL=http://localhost:13001
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
     ports:
       - "13040:3040"
     depends_on:
