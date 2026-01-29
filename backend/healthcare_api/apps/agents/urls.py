@@ -121,8 +121,11 @@ def agent_interactions(request):
             'receiver_agent': interaction.receiver_agent,
             'message_type': interaction.message_type,
             'capability': interaction.capability,
+            'payload': interaction.payload,  # Include payload for decision input
+            'response': interaction.response,  # Include response for rationale
             'duration_ms': interaction.duration_ms or 0,
             'success': interaction.success,
+            'error': interaction.error,
         })
     return Response(data)
 
