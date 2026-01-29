@@ -294,14 +294,16 @@ Provide a clear summary for the medical professional.""")
     async def _log_audit(self, state: HealthcareState) -> Dict[str, Any]:
         """Log operation to audit trail"""
         try:
+            from datetime import datetime
             conn = await asyncpg.connect(self.database_url)
             await conn.execute("""
                 INSERT INTO audit_log (
-                    session_id, user_id, natural_language_query, query_type,
+                    timestamp, session_id, user_id, natural_language_query, query_type,
                     sql_statement, classification, risk_score, reviewer_id,
                     review_notes, execution_result, execution_time_ms
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
             """,
+                datetime.now(),
                 state.get("session_id"),
                 state.get("user_id"),
                 state.get("user_query"),
