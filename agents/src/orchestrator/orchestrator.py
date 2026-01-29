@@ -295,13 +295,14 @@ Provide a clear summary for the medical professional.""")
         """Log operation to audit trail"""
         try:
             from datetime import datetime
+            import json
             conn = await asyncpg.connect(self.database_url)
             await conn.execute("""
                 INSERT INTO audit_log (
                     timestamp, session_id, user_id, natural_language_query, query_type,
-                    sql_statement, classification, risk_score, reviewer_id,
-                    review_notes, execution_result, execution_time_ms
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                    sql_statement, classification, risk_score, guardrail_violations,
+                    reviewer_id, review_notes, execution_result, execution_time_ms
+                ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
             """,
                 datetime.now(),
                 state.get("session_id"),
@@ -311,6 +312,7 @@ Provide a clear summary for the medical professional.""")
                 state.get("generated_sql"),
                 state.get("approval_status"),
                 state.get("risk_score"),
+                json.dumps(state.get("guardrail_violations", [])),
                 state.get("reviewer_id"),
                 state.get("review_notes"),
                 str(state.get("execution_result", ""))[:1000],
