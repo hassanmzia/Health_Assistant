@@ -54,6 +54,14 @@ services:
       - MCP_SERVER_URL=http://mcp-server:3001
       - AGENT_ORCHESTRATOR_URL=http://agents:8001
       - WS_SERVER_URL=http://ws-server:3002
+      # LangSmith Observability
+      - LANGCHAIN_TRACING_V2=${LANGCHAIN_TRACING_V2:-false}
+      - LANGCHAIN_API_KEY=${LANGCHAIN_API_KEY:-}
+      - LANGCHAIN_PROJECT=${LANGCHAIN_PROJECT:-healthcare-multi-agent}
+      # Langfuse Observability
+      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY:-}
+      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY:-}
+      - LANGFUSE_HOST=${LANGFUSE_HOST:-https://cloud.langfuse.com}
     volumes:
       - backend_static:/app/staticfiles
     ports:
