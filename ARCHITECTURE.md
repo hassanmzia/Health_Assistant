@@ -1,668 +1,1207 @@
-# Healthcare Intelligence Platform - Architecture
+# Healthcare Intelligence Platform - Technical Architecture Document
 
-## Overview
-
-A production-grade, multi-agent healthcare system built with cutting-edge AI technologies, featuring Human-in-the-Loop (HITL) workflows, Model Context Protocol (MCP), and Agent-to-Agent (A2A) communication.
-
----
-
-## System Architecture Diagram
-
-```
-┌─────────────────────────────────────────────────────────────────────────────────────┐
-│                              HEALTHCARE INTELLIGENCE PLATFORM                        │
-├─────────────────────────────────────────────────────────────────────────────────────┤
-│                                                                                      │
-│  ┌─────────────────────────────────────────────────────────────────────────────┐    │
-│  │                         FRONTEND (React + TypeScript)                        │    │
-│  │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐ │    │
-│  │  │ Chat Interface│  │HITL Approval │  │  Dashboard   │  │ Agent Monitoring │ │    │
-│  │  │   Component   │  │    Panel     │  │   & Metrics  │  │     Console      │ │    │
-│  │  └──────────────┘  └──────────────┘  └──────────────┘  └──────────────────┘ │    │
-│  └────────────────────────────────┬────────────────────────────────────────────┘    │
-│                                   │                                                  │
-│                          ┌────────▼────────┐                                        │
-│                          │   WebSocket     │ Real-time Communication                │
-│                          │   (Port 3002)   │ Agent Updates, HITL Events             │
-│                          └────────┬────────┘                                        │
-│                                   │                                                  │
-│  ┌────────────────────────────────┼────────────────────────────────────────────┐    │
-│  │                      API GATEWAY & ORCHESTRATION                             │    │
-│  │  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────────────┐   │    │
-│  │  │  Django REST API │  │   Nginx Proxy    │  │   Rate Limiting &        │   │    │
-│  │  │   (Port 8000)    │  │   (Port 80)      │  │   Request Validation     │   │    │
-│  │  └──────────────────┘  └──────────────────┘  └──────────────────────────┘   │    │
-│  └────────────────────────────────┬────────────────────────────────────────────┘    │
-│                                   │                                                  │
-│  ┌────────────────────────────────┼────────────────────────────────────────────┐    │
-│  │                         MULTI-AGENT SYSTEM                                   │    │
-│  │                                                                              │    │
-│  │   ┌──────────────────────────────────────────────────────────────────┐      │    │
-│  │   │                    AGENT ORCHESTRATOR (Port 8001)                 │      │    │
-│  │   │  ┌─────────────────────────────────────────────────────────────┐ │      │    │
-│  │   │  │                    LangGraph StateGraph                      │ │      │    │
-│  │   │  │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────────────┐ │ │      │    │
-│  │   │  │  │  START  │──▶  SQL    │──▶Classifier│──▶ Guardrails     │ │ │      │    │
-│  │   │  │  │         │  │  Agent  │  │  Agent   │  │ Validation     │ │ │      │    │
-│  │   │  │  └─────────┘  └─────────┘  └─────────┘  └───────┬─────────┘ │ │      │    │
-│  │   │  │                                                  │           │ │      │    │
-│  │   │  │  ┌─────────────────────────────────────────────┐│           │ │      │    │
-│  │   │  │  │           Conditional Routing               ││           │ │      │    │
-│  │   │  │  │  READ ──────▶ Auto Execute ────────────────▶││──▶END    │ │      │    │
-│  │   │  │  │  WRITE ─────▶ HITL Gate (interrupt) ───────▶││           │ │      │    │
-│  │   │  │  │  UNSAFE ────▶ Block & Reject ──────────────▶││           │ │      │    │
-│  │   │  │  └─────────────────────────────────────────────┘│           │ │      │    │
-│  │   │  │                                                  │           │ │      │    │
-│  │   │  │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌──────▼──────────┐ │ │      │    │
-│  │   │  │  │Executor │──▶Presenter│──▶ Audit   │──▶    END          │ │ │      │    │
-│  │   │  │  │ Agent   │  │  Agent  │  │  Logger │  │                 │ │ │      │    │
-│  │   │  │  └─────────┘  └─────────┘  └─────────┘  └─────────────────┘ │ │      │    │
-│  │   │  └─────────────────────────────────────────────────────────────┘ │      │    │
-│  │   └──────────────────────────────────────────────────────────────────┘      │    │
-│  │                                                                              │    │
-│  │   ┌────────────────────────────────────────────────────────────────────┐    │    │
-│  │   │                    A2A (Agent-to-Agent) Protocol                    │    │    │
-│  │   │  ┌──────────────┐  ┌──────────────┐  ┌────────────────────────────┐│    │    │
-│  │   │  │Agent Registry│  │Message Router│  │  Capability Discovery      ││    │    │
-│  │   │  │  & Discovery │  │  & Queuing   │  │  & Negotiation             ││    │    │
-│  │   │  └──────────────┘  └──────────────┘  └────────────────────────────┘│    │    │
-│  │   └────────────────────────────────────────────────────────────────────┘    │    │
-│  └─────────────────────────────────────────────────────────────────────────────┘    │
-│                                                                                      │
-│  ┌─────────────────────────────────────────────────────────────────────────────┐    │
-│  │                         MCP SERVER (Port 3001)                               │    │
-│  │   ┌────────────────────────────────────────────────────────────────────┐    │    │
-│  │   │                    Model Context Protocol                           │    │    │
-│  │   │  ┌──────────────────────────────────────────────────────────────┐  │    │    │
-│  │   │  │                         TOOLS                                 │  │    │    │
-│  │   │  │  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐ │  │    │    │
-│  │   │  │  │ query_db   │ │insert_record││delete_record││get_patient │ │  │    │    │
-│  │   │  │  │            │ │            │ │            │ │  _summary  │ │  │    │    │
-│  │   │  │  └────────────┘ └────────────┘ └────────────┘ └────────────┘ │  │    │    │
-│  │   │  │  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌────────────┐ │  │    │    │
-│  │   │  │  │list_tables │ │get_schema  │ │validate_sql││audit_action│ │  │    │    │
-│  │   │  │  │            │ │            │ │            │ │            │ │  │    │    │
-│  │   │  │  └────────────┘ └────────────┘ └────────────┘ └────────────┘ │  │    │    │
-│  │   │  └──────────────────────────────────────────────────────────────┘  │    │    │
-│  │   │  ┌──────────────────────────────────────────────────────────────┐  │    │    │
-│  │   │  │                       RESOURCES                               │  │    │    │
-│  │   │  │  ┌────────────────┐  ┌────────────────┐  ┌────────────────┐  │  │    │    │
-│  │   │  │  │ healthcare://  │  │ healthcare://  │  │ healthcare://  │  │  │    │    │
-│  │   │  │  │   schema       │  │   patients     │  │   audit-log    │  │  │    │    │
-│  │   │  │  └────────────────┘  └────────────────┘  └────────────────┘  │  │    │    │
-│  │   │  └──────────────────────────────────────────────────────────────┘  │    │    │
-│  │   └────────────────────────────────────────────────────────────────────┘    │    │
-│  └─────────────────────────────────────────────────────────────────────────────┘    │
-│                                                                                      │
-│  ┌─────────────────────────────────────────────────────────────────────────────┐    │
-│  │                              DATA LAYER                                      │    │
-│  │  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────────────┐   │    │
-│  │  │   PostgreSQL     │  │      Redis       │  │    Event Store           │   │    │
-│  │  │   (Port 5432)    │  │   (Port 6379)    │  │   (Audit Trail)          │   │    │
-│  │  │                  │  │                  │  │                          │   │    │
-│  │  │  - patients      │  │  - Session cache │  │  - Query history         │   │    │
-│  │  │  - conditions    │  │  - HITL state    │  │  - Approval decisions    │   │    │
-│  │  │  - medications   │  │  - A2A messages  │  │  - Agent interactions    │   │    │
-│  │  │  - allergies     │  │  - Rate limits   │  │  - Compliance logs       │   │    │
-│  │  │  - encounters    │  │  - Pub/Sub       │  │                          │   │    │
-│  │  │  - audit_log     │  │                  │  │                          │   │    │
-│  │  └──────────────────┘  └──────────────────┘  └──────────────────────────┘   │    │
-│  └─────────────────────────────────────────────────────────────────────────────┘    │
-│                                                                                      │
-└─────────────────────────────────────────────────────────────────────────────────────┘
-```
+## Table of Contents
+1. [Overview](#1-overview)
+2. [System Architecture](#2-system-architecture)
+3. [Service Components](#3-service-components)
+4. [Data Models](#4-data-models)
+5. [Multi-Agent System](#5-multi-agent-system)
+6. [Communication Patterns](#6-communication-patterns)
+7. [Security & Compliance](#7-security--compliance)
+8. [Deployment Architecture](#8-deployment-architecture)
+9. [API Reference](#9-api-reference)
 
 ---
 
-## Port Allocation (Conflict-Free)
+## 1. Overview
 
-| Service        | Port  | Protocol | Description                           |
-|----------------|-------|----------|---------------------------------------|
-| Frontend       | 3000  | HTTP     | React application                     |
-| MCP Server     | 3001  | HTTP     | Model Context Protocol server         |
-| WebSocket      | 3002  | WS       | Real-time communication               |
-| PostgreSQL     | 5432  | TCP      | Database                              |
-| Redis          | 6379  | TCP      | Cache & Pub/Sub                       |
-| Django API     | 8000  | HTTP     | REST API                              |
-| Agent Service  | 8001  | HTTP     | Multi-agent orchestrator              |
-| Nginx          | 80    | HTTP     | Reverse proxy (production)            |
+### 1.1 Purpose
+The Healthcare Intelligence Platform is an AI-powered natural language interface for healthcare databases. It enables medical professionals to query patient data using plain English while ensuring HIPAA compliance through Human-in-the-Loop (HITL) approval workflows.
+
+### 1.2 Key Features
+- **Natural Language to SQL**: Converts plain English queries to SQL statements
+- **Multi-Agent Architecture**: LangGraph-based workflow with specialized agents
+- **Human-in-the-Loop (HITL)**: Write operations require human approval
+- **Real-time Communication**: WebSocket-based live updates
+- **Audit Logging**: Complete audit trail for HIPAA compliance
+- **Guardrails**: Automatic blocking of dangerous queries
+
+### 1.3 Technology Stack
+
+| Layer | Technology |
+|-------|------------|
+| Frontend | React 18, TypeScript, Vite, TailwindCSS, Zustand |
+| Backend API | Django 5.0, Django REST Framework, Python 3.11 |
+| Agent Orchestration | FastAPI, LangGraph, LangChain, OpenAI GPT-4o-mini |
+| MCP Server | Node.js 20, Express, TypeScript |
+| WebSocket Server | Node.js 20, Socket.IO, TypeScript |
+| Database | PostgreSQL 16 (Synthea schema) |
+| Cache/Pub-Sub | Redis 7 |
+| Reverse Proxy | Nginx |
+| Container Orchestration | Docker Compose |
 
 ---
 
-## Advanced AI Technologies Used
+## 2. System Architecture
 
-### 1. LangGraph Multi-Agent Architecture
+### 2.1 High-Level Architecture Diagram
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              NGINX REVERSE PROXY                             │
+│                              (Port 18080 → 80)                               │
+└─────────────────────────────────────────────────────────────────────────────┘
+         │                    │                    │                    │
+         ▼                    ▼                    ▼                    ▼
+┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
+│    FRONTEND     │  │   BACKEND API   │  │   WS-SERVER     │  │   MCP-SERVER    │
+│  React + Vite   │  │     Django      │  │   Socket.IO     │  │    Express      │
+│ Port 13040→3040 │  │ Port 18000→8000 │  │ Port 13002→3002 │  │ Port 13001→3001 │
+└─────────────────┘  └─────────────────┘  └─────────────────┘  └─────────────────┘
+                              │                    │                    │
+                              ▼                    │                    │
+                     ┌─────────────────┐           │                    │
+                     │     AGENTS      │◄──────────┘                    │
+                     │    FastAPI +    │◄───────────────────────────────┘
+                     │    LangGraph    │
+                     │ Port 18001→8001 │
+                     └─────────────────┘
+                              │
+         ┌────────────────────┼────────────────────┐
+         ▼                    ▼                    ▼
+┌─────────────────┐  ┌─────────────────┐  ┌─────────────────┐
+│   POSTGRESQL    │  │     REDIS       │  │     REDIS       │
+│   Healthcare    │  │   Cache/Queue   │  │    Pub/Sub      │
+│ Port 15432→5432 │  │ Port 16379→6379 │  │ Port 16379→6379 │
+└─────────────────┘  └─────────────────┘  └─────────────────┘
+```
+
+### 2.2 Request Flow
+
+```
+User Query → Frontend → WebSocket Server → Agent Orchestrator
+                                                   │
+                                    ┌──────────────┼──────────────┐
+                                    ▼              ▼              ▼
+                              SQL Agent    Classifier Agent  HITL Agent
+                                    │              │              │
+                                    └──────────────┼──────────────┘
+                                                   ▼
+                                    ┌──────────────────────────┐
+                                    │  Decision: READ/WRITE?   │
+                                    └──────────────────────────┘
+                                         │                │
+                              READ ──────┘                └────── WRITE
+                                   │                             │
+                                   ▼                             ▼
+                         ┌─────────────────┐           ┌─────────────────┐
+                         │ Execute Query   │           │ HITL Approval   │
+                         └─────────────────┘           │    Required     │
+                                   │                   └─────────────────┘
+                                   │                             │
+                                   ▼                             ▼
+                         ┌─────────────────┐           ┌─────────────────┐
+                         │ Executor Agent  │           │ Human Decision  │
+                         └─────────────────┘           └─────────────────┘
+                                   │                             │
+                                   └──────────────┬──────────────┘
+                                                  ▼
+                                         ┌─────────────────┐
+                                         │  Audit Logging  │
+                                         └─────────────────┘
+                                                  │
+                                                  ▼
+                                         ┌─────────────────┐
+                                         │ Result to User  │
+                                         └─────────────────┘
+```
+
+---
+
+## 3. Service Components
+
+### 3.1 Frontend (React + TypeScript)
+
+**Location**: `/frontend/`
+
+**Ports**: 13040 (external) → 3040 (internal)
+
+**Technology**: React 18, Vite, TypeScript, TailwindCSS, Zustand
+
+#### Structure
+```
+frontend/
+├── src/
+│   ├── components/
+│   │   ├── chat/           # Chat interface components
+│   │   │   ├── ChatPage.tsx
+│   │   │   └── ChatMessage.tsx
+│   │   ├── dashboard/      # Analytics dashboard
+│   │   │   └── DashboardPage.tsx
+│   │   ├── hitl/           # Human-in-the-Loop components
+│   │   │   ├── HITLPage.tsx
+│   │   │   └── HITLApprovalPanel.tsx
+│   │   └── common/         # Shared components
+│   │       └── Layout.tsx
+│   ├── hooks/
+│   │   └── useWebSocket.ts # WebSocket connection hook (singleton)
+│   ├── store/
+│   │   └── index.ts        # Zustand state management
+│   ├── types/
+│   │   └── index.ts        # TypeScript interfaces
+│   ├── utils/
+│   │   └── uuid.ts         # UUID generation utility (HTTP-safe)
+│   ├── App.tsx             # Root component with routing
+│   └── main.tsx            # Entry point
+├── nginx.conf              # Production nginx config
+└── Dockerfile
+```
+
+#### Routes
+| Path | Component | Description |
+|------|-----------|-------------|
+| `/` | ChatPage | Main chat interface |
+| `/dashboard` | DashboardPage | Analytics and metrics |
+| `/hitl` | HITLPage | HITL task history |
+
+#### State Management (Zustand)
+```typescript
+interface AppState {
+  sessionId: string              // UUID for session tracking
+  messages: Message[]            // Chat message history
+  currentApproval: ApprovalTask | null  // Active approval request
+  isConnected: boolean           // WebSocket connection status
+  isLoading: boolean             // Loading indicator
+}
+```
+
+---
+
+### 3.2 Backend API (Django)
+
+**Location**: `/backend/`
+
+**Ports**: 18000 (external) → 8000 (internal)
+
+**Technology**: Django 5.0, Django REST Framework
+
+#### Structure
+```
+backend/
+├── healthcare_api/
+│   ├── apps/
+│   │   ├── patients/       # Patient data models & API
+│   │   ├── conditions/     # Medical conditions
+│   │   ├── medications/    # Medication records
+│   │   ├── allergies/      # Allergy information
+│   │   ├── encounters/     # Patient encounters
+│   │   ├── audit/          # Audit logging (AuditLog, AgentInteraction)
+│   │   ├── agents/         # Agent coordination
+│   │   └── hitl/           # HITL endpoints (task history)
+│   ├── settings/
+│   │   ├── base.py         # Base settings
+│   │   ├── development.py  # Dev settings
+│   │   └── production.py   # Prod settings
+│   ├── urls.py             # URL routing
+│   └── wsgi.py
+├── manage.py
+├── requirements.txt
+├── init.sql                # Database initialization with uuid-ossp
+└── Dockerfile
+```
+
+#### API Endpoints
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/health/` | GET | Health check |
+| `/api/patients/` | GET | List/search patients |
+| `/api/conditions/` | GET | List conditions |
+| `/api/medications/` | GET | List medications |
+| `/api/allergies/` | GET | List allergies |
+| `/api/encounters/` | GET | List encounters |
+| `/api/audit/` | GET | Audit logs |
+| `/api/audit/metrics/` | GET | Analytics metrics (by_type, by_status) |
+| `/api/hitl/tasks/` | GET | Pending HITL tasks |
+| `/api/hitl/history/` | GET | HITL history from audit_log |
+
+---
+
+### 3.3 Agent Orchestrator (FastAPI + LangGraph)
+
+**Location**: `/agents/`
+
+**Ports**: 18001 (external) → 8001 (internal)
+
+**Technology**: FastAPI, LangGraph, LangChain, OpenAI GPT-4o-mini
+
+#### Structure
+```
+agents/
+├── src/
+│   ├── orchestrator/
+│   │   ├── orchestrator.py # Main LangGraph workflow (HealthcareOrchestrator)
+│   │   └── state.py        # State definitions (HealthcareState, QueryType, ApprovalStatus)
+│   ├── sql_agent/
+│   │   └── agent.py        # SQL generation agent (SQLAgent)
+│   ├── classifier_agent/
+│   │   └── agent.py        # Query classification (ClassifierAgent)
+│   ├── executor_agent/
+│   │   └── agent.py        # SQL execution (ExecutorAgent)
+│   ├── hitl_agent/
+│   │   └── agent.py        # HITL workflow (HITLAgent)
+│   ├── a2a/
+│   │   ├── protocol.py     # Agent-to-Agent protocol
+│   │   └── registry.py     # Agent registry
+│   └── main.py             # FastAPI application
+├── requirements.txt
+└── Dockerfile
+```
+
+#### API Endpoints
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Health check |
+| `/process` | POST | Process natural language query |
+| `/resume` | POST | Resume paused workflow with HITL decision |
+| `/session/{id}` | GET | Get session state |
+| `/agents` | GET | List available agents and capabilities |
+
+---
+
+### 3.4 MCP Server (Model Context Protocol)
+
+**Location**: `/mcp-server/`
+
+**Ports**: 13001 (external) → 3001 (internal)
+
+**Technology**: Node.js, Express, TypeScript, pg (PostgreSQL client)
+
+#### Structure
+```
+mcp-server/
+├── src/
+│   ├── index.ts            # Express server with MCP endpoints
+│   ├── tools/
+│   │   └── index.ts        # MCP tools (query_db, insert_record, etc.)
+│   └── resources/
+│       └── index.ts        # MCP resources (schema, patients)
+├── package.json
+├── tsconfig.json
+└── Dockerfile
+```
+
+#### API Endpoints
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/health` | GET | Health check |
+| `/tools` | GET | List available MCP tools |
+| `/tools/:name` | POST | Execute a specific tool |
+| `/resources` | GET | List MCP resources |
+| `/resources/:uri` | GET | Fetch resource content |
+| `/schema` | GET | Get database schema (table columns, types) |
+| `/validate-sql` | POST | Validate SQL statement safety |
+
+#### SQL Validation Rules
+The MCP server validates SQL with these rules:
+- **Blocked keywords**: DROP, TRUNCATE, ALTER, GRANT, REVOKE, CREATE DATABASE
+- **Blocked patterns**: UPDATE/DELETE without WHERE clause
+- **Injection detection**: `;DROP`, `;DELETE`, `UNION SELECT`, `--`, `/**/`, `' OR '1'='1`
+- **Warnings**: SELECT without LIMIT clause
+
+---
+
+### 3.5 WebSocket Server (Socket.IO)
+
+**Location**: `/ws-server/`
+
+**Ports**: 13002 (external) → 3002 (internal)
+
+**Technology**: Node.js, Socket.IO, Express, Redis (pub/sub)
+
+#### Structure
+```
+ws-server/
+├── src/
+│   └── index.ts            # Socket.IO server with event handlers
+├── package.json
+├── tsconfig.json
+└── Dockerfile
+```
+
+#### WebSocket Events
+
+**Client → Server**
+| Event | Payload | Description |
+|-------|---------|-------------|
+| `join_session` | `sessionId: string` | Join a session room |
+| `leave_session` | `sessionId: string` | Leave a session |
+| `submit_query` | `{sessionId, query, userId}` | Submit NL query |
+| `submit_decision` | `{sessionId, decision, reviewerId, notes}` | Submit HITL decision |
+
+**Server → Client**
+| Event | Payload | Description |
+|-------|---------|-------------|
+| `session_joined` | `{sessionId}` | Session join confirmed |
+| `approval_required` | `ApprovalTask` | HITL approval needed |
+| `query_result` | `QueryResult` | Query completed successfully |
+| `decision_processed` | `DecisionResult` | HITL decision processed |
+| `error` | `{message}` | Error occurred |
+
+#### Redis Pub/Sub Channels
+| Channel | Publisher | Description |
+|---------|-----------|-------------|
+| `hitl:new_task` | HITL Agent | New approval task created |
+| `hitl:decision` | HITL Agent | Decision made on task |
+| `a2a:broadcast` | Agents | Agent broadcast messages |
+
+---
+
+### 3.6 Database (PostgreSQL)
+
+**Ports**: 15432 (external) → 5432 (internal)
+
+**Schema**: Synthea Healthcare Data Format + Custom Tables
+
+#### Healthcare Tables (Synthea Format)
+
+**patients**
+| Column | Type | Description |
+|--------|------|-------------|
+| Id | VARCHAR(100) PK | Patient UUID |
+| FIRST | VARCHAR(100) | First name |
+| LAST | VARCHAR(100) | Last name |
+| BIRTHDATE | DATE | Date of birth |
+| DEATHDATE | DATE | Date of death (nullable) |
+| SSN | VARCHAR(20) | Social Security Number (sensitive) |
+| GENDER | VARCHAR(10) | Gender |
+| RACE | VARCHAR(50) | Race |
+| ETHNICITY | VARCHAR(50) | Ethnicity |
+| ADDRESS | VARCHAR(200) | Street address |
+| CITY | VARCHAR(100) | City |
+| STATE | VARCHAR(100) | State |
+| ZIP | VARCHAR(20) | ZIP code |
+| HEALTHCARE_EXPENSES | FLOAT | Total expenses |
+| HEALTHCARE_COVERAGE | FLOAT | Coverage amount |
+
+**conditions**
+| Column | Type | Description |
+|--------|------|-------------|
+| START | DATE | Condition start date |
+| STOP | DATE | Condition end date |
+| PATIENT | VARCHAR(100) FK | Patient reference |
+| ENCOUNTER | VARCHAR(100) | Encounter reference |
+| CODE | VARCHAR(50) | SNOMED code |
+| DESCRIPTION | TEXT | Condition description |
+
+**medications**
+| Column | Type | Description |
+|--------|------|-------------|
+| START | DATE | Medication start date |
+| STOP | DATE | Medication end date |
+| PATIENT | VARCHAR(100) FK | Patient reference |
+| ENCOUNTER | VARCHAR(100) | Encounter reference |
+| CODE | VARCHAR(50) | RxNorm code |
+| DESCRIPTION | TEXT | Medication name |
+| REASONDESCRIPTION | TEXT | Reason for medication |
+
+**allergies**
+| Column | Type | Description |
+|--------|------|-------------|
+| START | DATE | Allergy onset date |
+| STOP | DATE | Allergy resolution date |
+| PATIENT | VARCHAR(100) FK | Patient reference |
+| CODE | VARCHAR(50) | Allergy code |
+| DESCRIPTION | TEXT | Allergy description |
+| TYPE | VARCHAR(50) | Allergy type |
+| CATEGORY | VARCHAR(50) | Category |
+| SEVERITY1 | VARCHAR(50) | Severity level |
+
+**encounters**
+| Column | Type | Description |
+|--------|------|-------------|
+| Id | VARCHAR(100) PK | Encounter UUID |
+| START | TIMESTAMP | Encounter start time |
+| STOP | TIMESTAMP | Encounter end time |
+| PATIENT | VARCHAR(100) FK | Patient reference |
+| ENCOUNTERCLASS | VARCHAR(50) | Type (ambulatory, emergency, etc.) |
+| DESCRIPTION | TEXT | Encounter description |
+
+#### System Tables
+
+**audit_log**
+| Column | Type | Description |
+|--------|------|-------------|
+| id | SERIAL PK | Auto-increment ID |
+| timestamp | TIMESTAMP | Event timestamp |
+| session_id | VARCHAR(100) | Session identifier |
+| user_id | VARCHAR(100) | User identifier |
+| natural_language_query | TEXT | Original user query |
+| query_type | VARCHAR(20) | READ, WRITE, UNSAFE |
+| sql_statement | TEXT | Generated SQL |
+| classification | VARCHAR(20) | APPROVED, REJECTED, BLOCKED, AUTO_EXECUTED, PENDING |
+| risk_score | FLOAT | Risk assessment score |
+| guardrail_violations | JSONB | List of violations |
+| reviewer_id | VARCHAR(100) | HITL reviewer ID |
+| review_notes | TEXT | Reviewer notes |
+| execution_result | TEXT | Query result |
+| execution_time_ms | INTEGER | Execution time |
+
+**agent_interactions**
+| Column | Type | Description |
+|--------|------|-------------|
+| id | SERIAL PK | Auto-increment ID |
+| timestamp | TIMESTAMP | Interaction time |
+| session_id | VARCHAR(100) | Session identifier |
+| correlation_id | VARCHAR(100) | Request correlation |
+| sender_agent | VARCHAR(50) | Sending agent |
+| receiver_agent | VARCHAR(50) | Receiving agent |
+| message_type | VARCHAR(50) | Message type |
+| capability | VARCHAR(100) | Capability invoked |
+| payload | JSONB | Request payload |
+| response | JSONB | Response data |
+| duration_ms | INTEGER | Duration |
+| success | BOOLEAN | Success status |
+
+---
+
+### 3.7 Redis
+
+**Ports**: 16379 (external) → 6379 (internal)
+
+#### Database Allocation
+| DB | Service | Purpose |
+|----|---------|---------|
+| 0 | Backend | Django session cache |
+| 1 | MCP Server | Schema caching |
+| 2 | Agents | Session state, LangGraph checkpoints |
+| 3 | WS Server | Pub/Sub messaging |
+
+#### Key Patterns
+```
+hitl:task:{task_id}     # HITL task data (JSON, 24h TTL)
+hitl:pending            # List of pending task IDs
+session:{session_id}    # Session state data
+```
+
+---
+
+## 4. Data Models
+
+### 4.1 Query State (HealthcareState)
 
 ```python
-# State-based workflow with checkpointing for HITL
-class HealthcareAgentState(TypedDict):
-    user_query: str
-    generated_sql: str
-    query_type: QueryType  # READ, WRITE, UNSAFE
-    risk_score: float
-    guardrail_violations: List[str]
-    approval_status: ApprovalStatus
-    execution_result: Optional[str]
-    audit_trail: List[AuditEntry]
+class HealthcareState(TypedDict, total=False):
+    # Input
+    user_query: str           # Natural language query
+    session_id: str           # Session UUID
+    user_id: str              # User identifier
+    timestamp: str            # ISO timestamp
+
+    # SQL Generation
+    generated_sql: str        # Generated SQL statement
+    sql_confidence: float     # Confidence score (0.0-1.0)
+
+    # Classification
+    query_type: str           # READ, WRITE, UNSAFE
+    risk_score: float         # Risk assessment (0.0-1.0)
+    risk_assessment: str      # Human-readable assessment
+    guardrail_violations: List[str]  # List of violations
+
+    # HITL
+    requires_approval: bool   # Whether approval needed
+    approval_status: str      # PENDING, APPROVED, REJECTED, AUTO_EXECUTED, BLOCKED
+    reviewer_id: Optional[str]    # Reviewer identifier
+    review_notes: Optional[str]   # Reviewer notes
+
+    # Execution
+    execution_result: Optional[str]   # Query result
+    execution_time_ms: Optional[int]  # Execution time
+    error_message: Optional[str]      # Error if any
+
+    # Schema context
+    schema_context: Optional[str]     # Database schema JSON
+
+    # Audit
+    audit_logged: bool        # Whether audit logged
 ```
 
-**Features:**
-- **Stateful Workflows**: Full state persistence across agent interactions
-- **Checkpoint System**: Resume HITL workflows after human decisions
-- **Conditional Routing**: Dynamic path selection based on risk assessment
-- **Parallel Execution**: Concurrent agent operations where safe
-
-### 2. Advanced Prompt Engineering
+### 4.2 Query Types
 
 ```python
-# Chain-of-Thought SQL Generation with Self-Verification
-SQL_GENERATION_PROMPT = """
-You are a healthcare SQL expert. Follow this reasoning process:
-
-STEP 1 - UNDERSTAND: Parse the user's intent
-- What tables are needed?
-- What relationships exist?
-- What filters apply?
-
-STEP 2 - PLAN: Design the query structure
-- Determine JOIN strategy
-- Identify aggregations
-- Plan result format
-
-STEP 3 - GENERATE: Write the SQL
-- Use exact Synthea column names (UPPERCASE)
-- Apply appropriate indexes
-- Include safety LIMIT clause
-
-STEP 4 - VERIFY: Self-check the query
-- Validate column names exist
-- Confirm JOIN conditions
-- Check for SQL injection patterns
-
-OUTPUT: Only the verified SQL statement
-"""
+class QueryType(str, Enum):
+    READ = "READ"       # SELECT queries - auto-execute
+    WRITE = "WRITE"     # INSERT, UPDATE, DELETE - requires HITL
+    UNSAFE = "UNSAFE"   # DROP, TRUNCATE, ALTER - blocked
 ```
 
-**Techniques Used:**
-- **Chain-of-Thought (CoT)**: Step-by-step reasoning
-- **Self-Verification**: Built-in error checking
-- **Few-Shot Learning**: Example-based learning
-- **Constitutional AI**: Built-in safety constraints
-
-### 3. Guardrails System
+### 4.3 Approval Status
 
 ```python
-# Multi-layer guardrails for healthcare compliance
-class GuardrailsConfig:
-    # Input validation
-    input_guardrails = [
-        MaxLengthGuardrail(max_chars=1000),
-        PIIDetectionGuardrail(),
-        SQLInjectionGuardrail(),
-        PromptInjectionGuardrail()
-    ]
-
-    # Output validation
-    output_guardrails = [
-        PHIProtectionGuardrail(),  # HIPAA compliance
-        DataMinimizationGuardrail(),
-        SensitiveColumnMaskGuardrail()
-    ]
-
-    # SQL-specific guardrails
-    sql_guardrails = [
-        DangerousKeywordGuardrail(['DROP', 'TRUNCATE', 'ALTER']),
-        MassOperationGuardrail(),  # Prevents UPDATE/DELETE without WHERE
-        TableAccessGuardrail(allowed_tables=['patients', 'conditions', ...]),
-        ColumnAccessGuardrail(blocked_columns=['SSN', 'PASSPORT'])
-    ]
+class ApprovalStatus(str, Enum):
+    PENDING = "PENDING"           # Awaiting human decision
+    APPROVED = "APPROVED"         # Human approved
+    REJECTED = "REJECTED"         # Human rejected
+    AUTO_EXECUTED = "AUTO_EXECUTED"  # Auto-executed (READ queries)
+    BLOCKED = "BLOCKED"           # Blocked by guardrails
 ```
 
-### 4. HITL (Human-in-the-Loop) Workflow
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                    HITL APPROVAL FLOW                            │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│   User Query ──▶ SQL Generation ──▶ Classification               │
-│                                            │                     │
-│                              ┌─────────────┼─────────────┐       │
-│                              │             │             │       │
-│                              ▼             ▼             ▼       │
-│                           [READ]       [WRITE]      [UNSAFE]     │
-│                              │             │             │       │
-│                              │             │             │       │
-│                              ▼             ▼             ▼       │
-│                        Auto-Execute   ┌─────────┐    Blocked     │
-│                              │        │  HITL   │        │       │
-│                              │        │  Gate   │        │       │
-│                              │        │interrupt│        │       │
-│                              │        └────┬────┘        │       │
-│                              │             │             │       │
-│                              │    ┌────────┴────────┐    │       │
-│                              │    │                 │    │       │
-│                              │    ▼                 ▼    │       │
-│                              │ [APPROVE]      [REJECT]   │       │
-│                              │    │                 │    │       │
-│                              │    ▼                 ▼    │       │
-│                              │ Execute           Notify  │       │
-│                              │    │                 │    │       │
-│                              └────┴────────┬────────┴────┘       │
-│                                            │                     │
-│                                            ▼                     │
-│                                     Audit Logging                │
-│                                            │                     │
-│                                            ▼                     │
-│                                    Present Results               │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### 5. MCP (Model Context Protocol) Implementation
+### 4.4 Frontend Types
 
 ```typescript
-// MCP Server with Healthcare-specific Tools
-const healthcareMCPServer = {
-  tools: [
-    {
-      name: "query_database",
-      description: "Execute a read-only SQL query against the healthcare database",
-      inputSchema: {
-        type: "object",
-        properties: {
-          sql: { type: "string", description: "SQL SELECT statement" },
-          limit: { type: "number", default: 100 }
-        },
-        required: ["sql"]
-      }
-    },
-    {
-      name: "get_patient_summary",
-      description: "Get comprehensive patient summary including conditions, medications, allergies",
-      inputSchema: {
-        type: "object",
-        properties: {
-          patient_id: { type: "string" },
-          include_history: { type: "boolean", default: true }
-        },
-        required: ["patient_id"]
-      }
-    },
-    {
-      name: "validate_sql",
-      description: "Validate SQL syntax and safety before execution",
-      inputSchema: {
-        type: "object",
-        properties: {
-          sql: { type: "string" }
-        },
-        required: ["sql"]
-      }
-    }
-  ],
-  resources: [
-    {
-      uri: "healthcare://schema",
-      name: "Database Schema",
-      mimeType: "application/json"
-    },
-    {
-      uri: "healthcare://patients/{id}",
-      name: "Patient Resource",
-      mimeType: "application/json"
-    }
-  ]
-};
-```
+interface ApprovalTask {
+  taskId: string
+  sessionId: string
+  naturalLanguageQuery: string
+  generatedSql: string
+  queryType: 'READ' | 'WRITE' | 'UNSAFE'
+  riskScore: number
+  riskAssessment: string
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'BLOCKED'
+  reviewerId?: string
+  reviewNotes?: string
+  createdAt: string
+}
 
-### 6. A2A (Agent-to-Agent) Protocol
-
-```python
-# A2A Message Protocol for Healthcare Agents
-@dataclass
-class A2AMessage:
-    sender_agent: str
-    receiver_agent: str
-    message_type: Literal["request", "response", "notification"]
-    capability: str
-    payload: Dict[str, Any]
-    correlation_id: str
-    timestamp: datetime
-    priority: int = 5
-
-# Agent Registry with Capability Discovery
-class AgentRegistry:
-    agents = {
-        "sql_agent": {
-            "capabilities": ["generate_sql", "validate_sql", "optimize_sql"],
-            "endpoint": "/agents/sql",
-            "load_balance": True
-        },
-        "classifier_agent": {
-            "capabilities": ["classify_query", "assess_risk", "detect_pii"],
-            "endpoint": "/agents/classifier"
-        },
-        "hitl_agent": {
-            "capabilities": ["request_approval", "track_decision", "escalate"],
-            "endpoint": "/agents/hitl"
-        },
-        "executor_agent": {
-            "capabilities": ["execute_query", "format_results", "handle_errors"],
-            "endpoint": "/agents/executor"
-        }
-    }
-```
-
-### 7. Risk Assessment & Scoring
-
-```python
-# Multi-factor Risk Scoring System
-class RiskAssessor:
-    def calculate_risk_score(self, sql: str, context: dict) -> RiskAssessment:
-        factors = {
-            "query_type": self._assess_query_type(sql),      # 0.0 - 1.0
-            "table_sensitivity": self._assess_tables(sql),    # 0.0 - 1.0
-            "data_scope": self._assess_scope(sql),            # 0.0 - 1.0
-            "user_history": self._assess_user_risk(context),  # 0.0 - 1.0
-            "time_anomaly": self._assess_time_pattern(context) # 0.0 - 1.0
-        }
-
-        weights = {
-            "query_type": 0.35,
-            "table_sensitivity": 0.25,
-            "data_scope": 0.20,
-            "user_history": 0.10,
-            "time_anomaly": 0.10
-        }
-
-        final_score = sum(factors[k] * weights[k] for k in factors)
-
-        return RiskAssessment(
-            score=final_score,
-            factors=factors,
-            recommendation=self._get_recommendation(final_score)
-        )
+interface Message {
+  id: string
+  role: 'user' | 'assistant' | 'system'
+  content: string
+  timestamp: Date
+  metadata?: {
+    queryType?: string
+    sql?: string
+    requiresApproval?: boolean
+    status?: string
+  }
+}
 ```
 
 ---
 
-## Agent Workflow Details
+## 5. Multi-Agent System
 
-### SQL Agent
-```python
-class SQLAgent:
-    """Generates SQL from natural language using advanced prompting"""
+### 5.1 LangGraph Workflow
 
-    capabilities = ["generate_sql", "validate_sql", "explain_sql"]
-
-    def generate(self, query: str, context: SchemaContext) -> SQLResult:
-        # 1. Schema-aware prompt construction
-        prompt = self._build_prompt(query, context.get_relevant_tables())
-
-        # 2. Generate with CoT reasoning
-        response = self.llm.generate(prompt, temperature=0)
-
-        # 3. Self-verification step
-        verified_sql = self._verify_and_fix(response.sql)
-
-        # 4. Syntax validation
-        self._validate_syntax(verified_sql)
-
-        return SQLResult(sql=verified_sql, confidence=response.confidence)
+```
+                    START
+                      │
+                      ▼
+              ┌──────────────┐
+              │ fetch_schema │  ← Fetches schema from MCP Server
+              └──────────────┘
+                      │
+                      ▼
+              ┌──────────────┐
+              │ generate_sql │  ← SQL Agent generates query
+              └──────────────┘
+                      │
+                      ▼
+              ┌───────────────┐
+              │classify_query │  ← Classifier Agent assesses risk
+              └───────────────┘
+                      │
+                      ▼
+              ┌────────────────┐
+              │check_guardrails│  ← Check for violations
+              └────────────────┘
+                      │
+          ┌───────────┼───────────┐
+          │           │           │
+    violations    WRITE       READ
+          │           │           │
+          ▼           ▼           ▼
+    ┌───────────┐ ┌─────────┐ ┌───────────┐
+    │  handle   │ │  hitl   │ │ execute   │
+    │ rejection │ │  gate   │ │   sql     │
+    └───────────┘ └─────────┘ └───────────┘
+          │           │           │
+          │     ┌─────┴─────┐     │
+          │     │ interrupt │     │
+          │     │  (HITL)   │     │
+          │     └─────┬─────┘     │
+          │           │           │
+          │     ┌─────┴─────┐     │
+          │  APPROVED   REJECTED  │
+          │     │           │     │
+          │     ▼           ▼     │
+          │ ┌─────────┐ ┌───────┐│
+          │ │ execute │ │handle ││
+          │ │   sql   │ │reject ││
+          │ └─────────┘ └───────┘│
+          │     │           │     │
+          └─────┼───────────┼─────┘
+                │           │
+                ▼           ▼
+              ┌───────────────┐
+              │present_results│  ← LLM summarizes results
+              └───────────────┘
+                      │
+                      ▼
+              ┌──────────────┐
+              │  log_audit   │  ← Record to audit_log
+              └──────────────┘
+                      │
+                      ▼
+                     END
 ```
 
-### Classifier Agent
-```python
-class ClassifierAgent:
-    """Classifies queries and assesses risk with guardrails"""
+### 5.2 Agent Descriptions
 
-    capabilities = ["classify", "assess_risk", "check_guardrails"]
+#### SQL Agent (`agents/src/sql_agent/agent.py`)
 
-    def classify(self, sql: str) -> Classification:
-        # 1. Pattern-based classification
-        query_type = self._detect_query_type(sql)
+**Purpose**: Generate SQL from natural language
 
-        # 2. Guardrail checks
-        violations = self.guardrails.check(sql)
+**Key Prompt Features**:
+```
+- Use PostgreSQL syntax
+- ALWAYS use double quotes for column names: "FIRST", "LAST", etc.
+- Include LIMIT 100 for SELECT unless specified otherwise
+- NEVER generate DROP, TRUNCATE, or ALTER statements
+- Use ILIKE for case-insensitive text matching
 
-        # 3. Risk scoring
-        risk = self.risk_assessor.calculate(sql)
-
-        # 4. Determine action
-        if violations:
-            return Classification(type=UNSAFE, violations=violations)
-        elif query_type in [INSERT, UPDATE, DELETE]:
-            return Classification(type=WRITE, risk_score=risk)
-        else:
-            return Classification(type=READ, risk_score=risk)
+INSERT STATEMENT RULES (CRITICAL):
+- For INSERT statements, ALWAYS use uuid_generate_v4() for the "Id" column
+- NEVER use DEFAULT for "Id" columns
+- Example: INSERT INTO "patients" ("Id", "FIRST", "LAST") VALUES (uuid_generate_v4(), 'John', 'Doe')
 ```
 
-### HITL Agent
+**Methods**:
+- `generate(query, schema_context)` → SQL result with confidence
+- `_clean_sql(sql)` → Remove markdown code blocks
+- `_fetch_schema()` → Get schema from MCP server
+- `_validate_sql(sql)` → Validate via MCP server
+
+#### Classifier Agent (`agents/src/classifier_agent/agent.py`)
+
+**Purpose**: Classify queries and assess risk
+
+**Classification Logic**:
 ```python
-class HITLAgent:
-    """Manages human-in-the-loop approval workflows"""
+UNSAFE_KEYWORDS = ["DROP", "TRUNCATE", "ALTER", "GRANT", "REVOKE",
+                   "CREATE USER", "CREATE DATABASE", "EXEC", "EXECUTE"]
+WRITE_KEYWORDS = ["INSERT", "UPDATE", "DELETE"]
+SENSITIVE_COLUMNS = ["SSN", "PASSPORT", "DRIVERS"]
 
-    capabilities = ["request_approval", "process_decision", "escalate"]
-
-    async def request_approval(self, request: ApprovalRequest) -> None:
-        # 1. Create approval task
-        task = await self._create_task(request)
-
-        # 2. Notify via WebSocket
-        await self.ws_server.broadcast({
-            "type": "approval_required",
-            "task_id": task.id,
-            "details": request.to_dict()
-        })
-
-        # 3. Interrupt workflow (LangGraph)
-        return interrupt({"task_id": task.id, "request": request})
-
-    async def process_decision(self, task_id: str, decision: Decision) -> None:
-        # 1. Validate reviewer permissions
-        self._validate_reviewer(decision.reviewer_id)
-
-        # 2. Log decision
-        await self.audit_logger.log(decision)
-
-        # 3. Resume workflow
-        return Command(resume=decision)
+# Classification flow:
+1. Check UNSAFE keywords → Block
+2. Check UPDATE/DELETE without WHERE → Block
+3. Check WRITE keywords → Require HITL
+4. Default → READ (auto-execute)
 ```
 
-### Executor Agent
-```python
-class ExecutorAgent:
-    """Safely executes SQL and formats results"""
+**Risk Scoring**:
+| Factor | Risk Impact |
+|--------|-------------|
+| INSERT operation | +0.5 base |
+| UPDATE operation | +0.7 base |
+| DELETE operation | +0.8 base |
+| JOIN in query | +0.1 |
+| Weak WHERE conditions | +0.1 |
+| No LIMIT clause | +0.1 |
+| Sensitive column access | +0.2 each |
 
-    capabilities = ["execute", "format_results", "handle_errors"]
+#### HITL Agent (`agents/src/hitl_agent/agent.py`)
 
-    def execute(self, sql: str, approved: bool = False) -> ExecutionResult:
-        # 1. Final safety check
-        if not self._final_safety_check(sql, approved):
-            raise SecurityError("Execution blocked by safety check")
+**Purpose**: Manage human approval workflow
 
-        # 2. Execute with timeout
-        with timeout(seconds=30):
-            result = self.db.execute(sql)
+**Workflow**:
+1. Create approval request in Redis (`hitl:task:{id}`)
+2. Add to pending queue (`hitl:pending`)
+3. Publish to `hitl:new_task` channel
+4. Return `interrupt()` to pause workflow
+5. Wait for human decision via `resume()`
+6. Process decision and publish to `hitl:decision`
 
-        # 3. Apply output guardrails
-        sanitized = self.output_guardrails.process(result)
+**Data Storage** (Redis, 24h TTL):
+```json
+{
+  "task_id": "uuid",
+  "session_id": "uuid",
+  "natural_language_query": "...",
+  "generated_sql": "...",
+  "query_type": "WRITE",
+  "risk_score": 0.5,
+  "risk_assessment": "...",
+  "status": "PENDING",
+  "created_at": "ISO timestamp",
+  "expires_at": "ISO timestamp"
+}
+```
 
-        # 4. Format for presentation
-        formatted = self._format_results(sanitized)
+#### Executor Agent (`agents/src/executor_agent/agent.py`)
 
-        return ExecutionResult(data=formatted, row_count=len(result))
+**Purpose**: Execute SQL safely
+
+**Safety Features**:
+- Final safety check before execution
+- Statement splitting for multiple queries
+- Timeout protection
+- Result formatting (JSON for single record, summary for multiple)
+
+**Execution Flow**:
+1. Split SQL by semicolon
+2. Determine SELECT vs modifying query
+3. Execute with asyncpg
+4. Format results (limit display to 20 records)
+5. Return data and row count
+
+---
+
+## 6. Communication Patterns
+
+### 6.1 Query Processing Flow (READ)
+
+```
+1. User types: "Show all patients with diabetes"
+2. Frontend → WebSocket: submit_query {sessionId, query, userId}
+3. WS Server → Agents: POST /process {query, session_id, user_id}
+4. Orchestrator workflow:
+   a. fetch_schema: GET MCP /schema
+   b. generate_sql: SQL Agent creates SELECT query
+   c. classify_query: Classifier returns {type: READ, risk: 0.2}
+   d. check_guardrails: No violations
+   e. execute_sql: Executor runs query
+   f. present_results: LLM summarizes results
+   g. log_audit: INSERT into audit_log
+5. Agents → WS Server: QueryResponse {status: AUTO_EXECUTED, result}
+6. WS Server → Frontend: emit 'query_result'
+7. Frontend displays formatted results
+```
+
+### 6.2 HITL Approval Flow (WRITE)
+
+```
+1. User types: "Add new patient John Doe born 1990-05-15"
+2. Frontend → WebSocket: submit_query
+3. WS Server → Agents: POST /process
+4. Orchestrator workflow:
+   a. generate_sql: INSERT INTO patients... uuid_generate_v4()
+   b. classify_query: {type: WRITE, risk: 0.5}
+   c. hitl_gate: Creates approval request
+   d. interrupt() pauses workflow
+5. Agents → WS Server: {status: PENDING_APPROVAL, requires_approval: true}
+6. WS Server → Frontend: emit 'approval_required' {generatedSql, riskScore}
+7. Frontend shows HITLApprovalPanel
+8. Reviewer clicks APPROVE
+9. Frontend → WebSocket: submit_decision {decision: APPROVED, reviewerId}
+10. WS Server → Agents: POST /resume {session_id, decision, reviewer_id}
+11. Orchestrator resumes:
+    a. execute_sql: Runs INSERT
+    b. present_results: Formats success message
+    c. log_audit: Records approval
+12. WS Server → Frontend: emit 'decision_processed'
+13. Frontend shows success message
+```
+
+### 6.3 Redis Pub/Sub Flow
+
+```
+┌──────────────┐      publish       ┌─────────────┐
+│ HITL Agent   │ ─────────────────► │   Redis     │
+└──────────────┘  hitl:new_task     │   DB 3      │
+                                    └──────┬──────┘
+                                           │
+                                           │ subscribe
+                                           ▼
+                                    ┌─────────────┐
+                                    │  WS Server  │
+                                    └──────┬──────┘
+                                           │
+                                           │ emit
+                                           ▼
+                                    ┌─────────────┐
+                                    │  Frontend   │
+                                    └─────────────┘
 ```
 
 ---
 
-## Security & Compliance Features
+## 7. Security & Compliance
 
-### HIPAA Compliance
-- **PHI Detection**: Automatic detection of Protected Health Information
-- **Data Minimization**: Return only necessary data fields
-- **Audit Trail**: Complete logging of all data access
-- **Access Control**: Role-based permissions for HITL approvers
+### 7.1 HIPAA Compliance Features
 
-### SQL Injection Prevention
+| Requirement | Implementation |
+|-------------|----------------|
+| Access Control | Session-based tracking, reviewer IDs |
+| Audit Trail | All queries logged to audit_log table |
+| Data Minimization | Guardrails warn on SELECT * |
+| PHI Protection | Sensitive column detection (SSN, PASSPORT, DRIVERS) |
+| Write Controls | HITL approval for all write operations |
+| Encryption | PostgreSQL SSL, Redis AUTH (configurable) |
+
+### 7.2 Guardrails System
+
+**Blocked Operations** (Automatic rejection):
 ```python
-# Multi-layer SQL injection prevention
-class SQLInjectionGuardrail:
-    patterns = [
-        r";\s*DROP",
-        r";\s*DELETE",
-        r"UNION\s+SELECT",
-        r"--\s*$",
-        r"/\*.*\*/",
-        r"'\s*OR\s+'1'\s*=\s*'1",
-        r"'\s*OR\s+1\s*=\s*1"
-    ]
-
-    def check(self, sql: str) -> List[Violation]:
-        violations = []
-        for pattern in self.patterns:
-            if re.search(pattern, sql, re.IGNORECASE):
-                violations.append(Violation(
-                    type="SQL_INJECTION",
-                    pattern=pattern,
-                    severity="CRITICAL"
-                ))
-        return violations
+UNSAFE_KEYWORDS = [
+    "DROP", "TRUNCATE", "ALTER",
+    "GRANT", "REVOKE",
+    "CREATE USER", "CREATE DATABASE",
+    "EXEC", "EXECUTE"
+]
 ```
 
-### Prompt Injection Prevention
+**Mass Operation Prevention**:
+- UPDATE without WHERE → Blocked
+- DELETE without WHERE → Blocked
+
+**SQL Injection Detection**:
 ```python
-class PromptInjectionGuardrail:
-    """Prevents manipulation of system prompts via user input"""
-
-    suspicious_patterns = [
-        r"ignore previous instructions",
-        r"disregard the above",
-        r"new instructions:",
-        r"system:",
-        r"<\|.*\|>",
-        r"\[INST\]",
-        r"###"
-    ]
+INJECTION_PATTERNS = [
+    r";\s*DROP",           # Chained DROP
+    r";\s*DELETE",         # Chained DELETE
+    r"UNION\s+SELECT",     # Union injection
+    r"--\s*$",             # Comment injection
+    r"/\*.*\*/",           # Block comment
+    r"'\s*OR\s+'1'\s*=\s*'1",  # Always-true (string)
+    r"'\s*OR\s+1\s*=\s*1"      # Always-true (int)
+]
 ```
+
+**Sensitive Column Detection**:
+- SSN (Social Security Number)
+- PASSPORT
+- DRIVERS (Driver's License)
+- Access generates guardrail violation warnings
+
+### 7.3 Risk Scoring Matrix
+
+| Query Type | Base Risk | Modifiers |
+|------------|-----------|-----------|
+| SELECT | 0.1 | +0.1 no LIMIT, +0.2/sensitive col |
+| INSERT | 0.5 | +0.1 if JOINs |
+| UPDATE | 0.7 | +0.1 weak WHERE |
+| DELETE | 0.8 | +0.1 weak WHERE |
+| UNSAFE | 1.0 | Always blocked |
 
 ---
 
-## Data Flow
+## 8. Deployment Architecture
 
-```
-User Query
-    │
-    ▼
-┌─────────────────────────────────────────────────────────────┐
-│  1. Input Guardrails                                        │
-│     - Length validation                                     │
-│     - PII detection                                         │
-│     - Injection prevention                                  │
-└─────────────────────────────────────────────────────────────┘
-    │
-    ▼
-┌─────────────────────────────────────────────────────────────┐
-│  2. SQL Agent (via MCP)                                     │
-│     - Schema context loading                                │
-│     - Natural language → SQL transformation                 │
-│     - Self-verification                                     │
-└─────────────────────────────────────────────────────────────┘
-    │
-    ▼
-┌─────────────────────────────────────────────────────────────┐
-│  3. Classifier Agent                                        │
-│     - Query type detection                                  │
-│     - Risk score calculation                                │
-│     - SQL guardrails check                                  │
-└─────────────────────────────────────────────────────────────┘
-    │
-    ├─── READ (Low Risk) ──▶ Auto-Execute
-    │
-    ├─── WRITE (Medium Risk) ──▶ HITL Gate
-    │                              │
-    │                              ├──▶ APPROVE ──▶ Execute
-    │                              └──▶ REJECT ──▶ Notify User
-    │
-    └─── UNSAFE (High Risk) ──▶ Block & Notify
-    │
-    ▼
-┌─────────────────────────────────────────────────────────────┐
-│  4. Executor Agent                                          │
-│     - Final safety check                                    │
-│     - Query execution                                       │
-│     - Output guardrails                                     │
-└─────────────────────────────────────────────────────────────┘
-    │
-    ▼
-┌─────────────────────────────────────────────────────────────┐
-│  5. Presenter Agent                                         │
-│     - Result formatting                                     │
-│     - Natural language summary                              │
-│     - Clinical context                                      │
-└─────────────────────────────────────────────────────────────┘
-    │
-    ▼
-┌─────────────────────────────────────────────────────────────┐
-│  6. Audit Logger                                            │
-│     - Compliance logging                                    │
-│     - Metrics collection                                    │
-│     - Event streaming                                       │
-└─────────────────────────────────────────────────────────────┘
-    │
-    ▼
-Response to User
-```
+### 8.1 Port Allocation
 
----
+| Service | External Port | Internal Port | Protocol |
+|---------|---------------|---------------|----------|
+| PostgreSQL | 15432 | 5432 | TCP |
+| Redis | 16379 | 6379 | TCP |
+| Backend API | 18000 | 8000 | HTTP |
+| MCP Server | 13001 | 3001 | HTTP |
+| Agents | 18001 | 8001 | HTTP |
+| WS Server | 13002 | 3002 | WS |
+| Frontend | 13040 | 3040 | HTTP |
+| Nginx | 18080 | 80 | HTTP |
 
-## Technology Stack Summary
-
-| Layer | Technology | Purpose |
-|-------|------------|---------|
-| Frontend | React 18, TypeScript, TailwindCSS | Modern UI with real-time updates |
-| WebSocket | Node.js, Socket.io | Real-time HITL notifications |
-| API | Django REST Framework | REST API with auth & validation |
-| Agents | LangGraph, LangChain | Multi-agent orchestration |
-| MCP | TypeScript, @modelcontextprotocol/sdk | Tool & resource provider |
-| LLM | OpenAI GPT-4o-mini / GPT-4o | Natural language processing |
-| Database | PostgreSQL 16 | ACID-compliant data storage |
-| Cache | Redis 7 | Session, pub/sub, rate limiting |
-| Container | Docker Compose | Multi-service orchestration |
-| Proxy | Nginx | Load balancing & SSL termination |
-
----
-
-## Getting Started
+### 8.2 Environment Variables
 
 ```bash
-# Clone and setup
-git clone <repo>
-cd Health_Assistant
+# Database
+DATABASE_URL=postgresql://healthcare_user:healthcare_secure_pass_2024@postgres:5432/healthcare_db
 
-# Set environment variables
-cp .env.example .env
-# Edit .env with your OPENAI_API_KEY
+# Redis
+REDIS_URL=redis://redis:6379/0
 
-# Start all services
-docker-compose up -d
+# API Keys
+OPENAI_API_KEY=sk-...
 
-# Access the application
-# Frontend: http://localhost:3000
-# API Docs: http://localhost:8000/api/docs
-# MCP Server: http://localhost:3001
+# Service URLs (internal Docker network)
+MCP_SERVER_URL=http://mcp-server:3001
+AGENT_ORCHESTRATOR_URL=http://agents:8001
+WS_SERVER_URL=http://ws-server:3002
+BACKEND_URL=http://backend:8000
+
+# Django
+SECRET_KEY=django-healthcare-secret-key-2024-very-secure
+ALLOWED_HOSTS=*
+DEBUG=False
+```
+
+### 8.3 Docker Compose Services
+
+| Service | Base Image | Healthcheck |
+|---------|------------|-------------|
+| postgres | postgres:16-alpine | pg_isready |
+| redis | redis:7-alpine | redis-cli ping |
+| backend | Custom Python | curl /api/health/ |
+| mcp-server | Custom Node | wget /health |
+| agents | Custom Python | curl /health |
+| ws-server | Custom Node | wget /health |
+| frontend | Custom Node/Nginx | - |
+| nginx | nginx:alpine | - |
+
+### 8.4 Volume Mounts
+
+| Volume | Mount Point | Purpose |
+|--------|-------------|---------|
+| postgres_data | /var/lib/postgresql/data | Database persistence |
+| redis_data | /data | Cache persistence |
+| backend_static | /app/staticfiles | Django static files |
+
+---
+
+## 9. API Reference
+
+### 9.1 Agent Orchestrator API
+
+#### POST /process
+Process a natural language query.
+
+**Request**:
+```json
+{
+  "query": "Show all patients with diabetes",
+  "session_id": "optional-uuid",
+  "user_id": "anonymous"
+}
+```
+
+**Response (READ - Auto-executed)**:
+```json
+{
+  "session_id": "uuid",
+  "status": "AUTO_EXECUTED",
+  "query_type": "READ",
+  "result": "Found 5 patients with diabetes:\n- John Doe, age 45...",
+  "requires_approval": false
+}
+```
+
+**Response (WRITE - Pending)**:
+```json
+{
+  "session_id": "uuid",
+  "status": "PENDING_APPROVAL",
+  "query_type": "WRITE",
+  "requires_approval": true,
+  "approval_details": {
+    "generated_sql": "INSERT INTO \"patients\" (\"Id\", \"FIRST\", \"LAST\") VALUES (uuid_generate_v4(), 'John', 'Doe')",
+    "risk_assessment": "WRITE operation: INSERT detected. Requires approval.",
+    "risk_score": 0.5
+  }
+}
+```
+
+#### POST /resume
+Resume a paused workflow with human decision.
+
+**Request**:
+```json
+{
+  "session_id": "uuid",
+  "decision": "APPROVED",
+  "reviewer_id": "dr.smith",
+  "notes": "Patient verified"
+}
+```
+
+**Response**:
+```json
+{
+  "session_id": "uuid",
+  "status": "APPROVED",
+  "query_type": "WRITE",
+  "result": "INSERT 0 1",
+  "requires_approval": false
+}
+```
+
+#### GET /agents
+List available agents.
+
+**Response**:
+```json
+{
+  "agents": [
+    {
+      "name": "sql_agent",
+      "description": "Generates SQL from natural language",
+      "capabilities": ["generate_sql", "validate_sql", "optimize_sql"]
+    },
+    {
+      "name": "classifier_agent",
+      "description": "Classifies queries and assesses risk",
+      "capabilities": ["classify_query", "assess_risk", "check_guardrails"]
+    },
+    {
+      "name": "hitl_agent",
+      "description": "Manages human-in-the-loop approvals",
+      "capabilities": ["request_approval", "process_decision", "escalate"]
+    },
+    {
+      "name": "executor_agent",
+      "description": "Executes SQL and formats results",
+      "capabilities": ["execute_query", "format_results", "handle_errors"]
+    }
+  ]
+}
+```
+
+### 9.2 MCP Server API
+
+#### GET /schema
+Get database schema.
+
+**Response**:
+```json
+{
+  "schema": {
+    "patients": [
+      {"column": "Id", "type": "character varying", "nullable": false},
+      {"column": "FIRST", "type": "character varying", "nullable": true},
+      {"column": "LAST", "type": "character varying", "nullable": true}
+    ],
+    "conditions": [...],
+    "medications": [...]
+  }
+}
+```
+
+#### POST /validate-sql
+Validate SQL statement.
+
+**Request**:
+```json
+{
+  "sql": "SELECT * FROM patients WHERE \"LAST\" = 'Smith'"
+}
+```
+
+**Response**:
+```json
+{
+  "valid": true,
+  "errors": [],
+  "warnings": ["Consider adding LIMIT clause to prevent large result sets"]
+}
+```
+
+### 9.3 Backend API
+
+#### GET /api/audit/metrics/
+Get analytics metrics.
+
+**Response**:
+```json
+{
+  "total_queries": 150,
+  "by_type": {
+    "READ": 120,
+    "WRITE": 25,
+    "UNSAFE": 5
+  },
+  "by_status": {
+    "AUTO_EXECUTED": 120,
+    "APPROVED": 20,
+    "REJECTED": 3,
+    "BLOCKED": 7
+  }
+}
 ```
 
 ---
 
-## Features from Original Notebook (All Implemented)
+## Appendix A: File Structure
 
-1. **Synthea Healthcare Data** - Full schema support for patients, conditions, medications, allergies, encounters
-2. **Natural Language to SQL** - Advanced prompt engineering with schema awareness
-3. **Query Classification** - READ/WRITE/UNSAFE with risk scoring
-4. **Human-in-the-Loop** - Interrupt/resume workflow for write operations
-5. **Audit Logging** - Complete compliance trail
-6. **Result Presentation** - LLM-powered summarization
-7. **Guardrails** - Multi-layer security for SQL and prompts
-8. **Gradio Interface** → Upgraded to React/TypeScript SPA
+```
+Health_Assistant/
+├── agents/                     # Multi-agent orchestrator
+│   ├── src/
+│   │   ├── orchestrator/       # LangGraph workflow
+│   │   │   ├── orchestrator.py # HealthcareOrchestrator class
+│   │   │   └── state.py        # HealthcareState, enums
+│   │   ├── sql_agent/          # SQL generation
+│   │   │   └── agent.py        # SQLAgent class
+│   │   ├── classifier_agent/   # Query classification
+│   │   │   └── agent.py        # ClassifierAgent class
+│   │   ├── executor_agent/     # SQL execution
+│   │   │   └── agent.py        # ExecutorAgent class
+│   │   ├── hitl_agent/         # HITL workflow
+│   │   │   └── agent.py        # HITLAgent class
+│   │   ├── a2a/                # Agent-to-Agent protocol
+│   │   └── main.py             # FastAPI application
+│   ├── requirements.txt
+│   └── Dockerfile
+├── backend/                    # Django REST API
+│   ├── healthcare_api/
+│   │   ├── apps/
+│   │   │   ├── patients/       # Patient CRUD
+│   │   │   ├── conditions/     # Conditions
+│   │   │   ├── medications/    # Medications
+│   │   │   ├── allergies/      # Allergies
+│   │   │   ├── encounters/     # Encounters
+│   │   │   ├── audit/          # Audit logging
+│   │   │   ├── agents/         # Agent coordination
+│   │   │   └── hitl/           # HITL endpoints
+│   │   ├── settings/           # Django settings
+│   │   └── urls.py             # URL routing
+│   ├── init.sql                # DB initialization
+│   └── Dockerfile
+├── frontend/                   # React + TypeScript UI
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── chat/           # ChatPage, ChatMessage
+│   │   │   ├── dashboard/      # DashboardPage
+│   │   │   ├── hitl/           # HITLPage, HITLApprovalPanel
+│   │   │   └── common/         # Layout
+│   │   ├── hooks/              # useWebSocket (singleton)
+│   │   ├── store/              # Zustand state
+│   │   ├── types/              # TypeScript interfaces
+│   │   ├── utils/              # uuid.ts (HTTP-safe)
+│   │   └── App.tsx             # Router
+│   ├── nginx.conf              # Production nginx
+│   └── Dockerfile
+├── mcp-server/                 # Model Context Protocol
+│   ├── src/
+│   │   ├── index.ts            # Express server
+│   │   ├── tools/              # MCP tools
+│   │   └── resources/          # MCP resources
+│   └── Dockerfile
+├── ws-server/                  # WebSocket server
+│   ├── src/
+│   │   └── index.ts            # Socket.IO server
+│   └── Dockerfile
+├── nginx/                      # Reverse proxy
+│   └── nginx.conf
+├── docker-compose.yml          # Container orchestration
+└── ARCHITECTURE.md             # This document
+```
+
+---
+
+## Appendix B: Quick Start
+
+```bash
+# 1. Set environment variables
+export OPENAI_API_KEY=sk-your-key
+
+# 2. Start all services
+docker compose up -d
+
+# 3. Run database migrations
+docker compose exec backend python manage.py makemigrations
+docker compose exec backend python manage.py migrate
+
+# 4. Access the application
+open http://localhost:18080    # Via Nginx
+open http://localhost:13040    # Direct frontend
+
+# 5. Test a query
+# In the chat interface, try: "Show all patients"
+```
+
+---
+
+## Appendix C: Troubleshooting
+
+| Issue | Solution |
+|-------|----------|
+| Port already in use | Change external ports in docker-compose.yml |
+| WebSocket disconnected | Check ws-server logs, ensure Redis is healthy |
+| Query fails with "relation does not exist" | Run migrations: `docker compose exec backend python manage.py migrate` |
+| INSERT fails with null Id | SQL Agent now uses `uuid_generate_v4()` - rebuild agents container |
+| HITL page shows 0 records | HITL history reads from audit_log where query_type='WRITE' |
+| crypto.randomUUID error | Frontend uses polyfill in utils/uuid.ts for HTTP |
+
+---
+
+*Document Version: 2.0*
+*Last Updated: January 2026*
