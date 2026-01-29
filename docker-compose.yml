@@ -112,6 +112,14 @@ services:
       - BACKEND_URL=http://backend:8000
       - WS_SERVER_URL=http://ws-server:3002
       - A2A_PORT=8001
+      # LangSmith Observability (optional)
+      - LANGCHAIN_TRACING_V2=${LANGCHAIN_TRACING_V2:-false}
+      - LANGCHAIN_API_KEY=${LANGCHAIN_API_KEY:-}
+      - LANGCHAIN_PROJECT=${LANGCHAIN_PROJECT:-healthcare-multi-agent}
+      # Langfuse Observability (optional)
+      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY:-}
+      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY:-}
+      - LANGFUSE_HOST=${LANGFUSE_HOST:-https://cloud.langfuse.com}
     ports:
       - "18001:8001"
     depends_on:

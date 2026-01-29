@@ -24,6 +24,8 @@ from ..sql_agent import SQLAgent
 from ..classifier_agent import ClassifierAgent
 from ..executor_agent import ExecutorAgent
 from ..hitl_agent import HITLAgent
+from ..observability import ObservabilityManager, get_langfuse_callbacks
+from ..phi_filter import mask_phi_in_text, check_query_toxicity
 
 
 class HealthcareOrchestrator:
@@ -43,11 +45,18 @@ class HealthcareOrchestrator:
         self.mcp_url = mcp_url
         self.redis_client = redis_client
 
-        # Initialize LLM
+        # Initialize observability manager for tracing
+        self.observability = ObservabilityManager()
+
+        # Get callbacks for LLM tracing
+        callbacks = get_langfuse_callbacks()
+
+        # Initialize LLM with observability callbacks
         self.llm = ChatOpenAI(
             model="gpt-4o-mini",
             api_key=openai_api_key,
-            temperature=0
+            temperature=0,
+            callbacks=callbacks if callbacks else None
         )
 
         # Initialize agents
@@ -104,6 +113,7 @@ class HealthcareOrchestrator:
         builder = StateGraph(HealthcareState)
 
         # Add nodes
+        builder.add_node("check_toxicity", self._check_toxicity)
         builder.add_node("fetch_schema", self._fetch_schema)
         builder.add_node("generate_sql", self._generate_sql)
         builder.add_node("classify_query", self._classify_query)
@@ -114,8 +124,19 @@ class HealthcareOrchestrator:
         builder.add_node("handle_rejection", self._handle_rejection)
         builder.add_node("log_audit", self._log_audit)
 
-        # Add edges
-        builder.add_edge(START, "fetch_schema")
+        # Add edges - start with toxicity check
+        builder.add_edge(START, "check_toxicity")
+
+        # Conditional routing after toxicity check
+        builder.add_conditional_edges(
+            "check_toxicity",
+            self._route_after_toxicity,
+            {
+                "fetch_schema": "fetch_schema",
+                "handle_rejection": "handle_rejection"
+            }
+        )
+
         builder.add_edge("fetch_schema", "generate_sql")
         builder.add_edge("generate_sql", "classify_query")
         builder.add_edge("classify_query", "check_guardrails")
@@ -148,6 +169,60 @@ class HealthcareOrchestrator:
         builder.add_edge("log_audit", END)
 
         return builder.compile(checkpointer=self.checkpointer)
+
+    async def _check_toxicity(self, state: HealthcareState) -> Dict[str, Any]:
+        """Check user query for toxic or harmful content"""
+        start_time = time.time()
+        session_id = state.get("session_id", "unknown")
+        user_query = state.get("user_query", "")
+
+        # Check query for toxicity
+        toxicity_result = check_query_toxicity(user_query)
+        duration = int((time.time() - start_time) * 1000)
+
+        # Log the toxicity check
+        await self._log_agent_interaction(
+            session_id=session_id,
+            sender_agent="orchestrator",
+            receiver_agent="toxicity_filter",
+            capability="check_toxicity",
+            payload={"query_length": len(user_query)},
+            response={
+                "is_toxic": toxicity_result['is_toxic'],
+                "toxicity_score": toxicity_result['toxicity_score'],
+                "should_block": toxicity_result['should_block']
+            },
+            duration_ms=duration,
+            success=not toxicity_result['should_block']
+        )
+
+        # Log decision to observability
+        if toxicity_result['is_toxic']:
+            self.observability.log_agent_decision(
+                trace_id=session_id,
+                agent_name="toxicity_filter",
+                decision="check_toxicity",
+                rationale=toxicity_result.get('message', 'Toxic content detected'),
+                input_data={"query_length": len(user_query)},
+                output_data={
+                    "blocked": toxicity_result['should_block'],
+                    "score": toxicity_result['toxicity_score']
+                },
+                confidence=1.0 - (toxicity_result['toxicity_score'] / 10),
+                duration_ms=duration
+            )
+
+        return {
+            "toxicity_result": toxicity_result,
+            "is_toxic": toxicity_result['is_toxic'],
+            "toxicity_blocked": toxicity_result['should_block']
+        }
+
+    def _route_after_toxicity(self, state: HealthcareState) -> str:
+        """Route based on toxicity check result"""
+        if state.get("toxicity_blocked", False):
+            return "handle_rejection"
+        return "fetch_schema"
 
     async def _fetch_schema(self, state: HealthcareState) -> Dict[str, Any]:
         """Fetch database schema from MCP server"""
@@ -191,19 +266,36 @@ class HealthcareOrchestrator:
             schema_context=state.get("schema_context", "")
         )
         duration = int((time.time() - start_time) * 1000)
+        confidence = result.get("confidence", 0.8)
+
+        # Log agent interaction
         await self._log_agent_interaction(
             session_id=session_id,
             sender_agent="orchestrator",
             receiver_agent="sql_agent",
             capability="generate_sql",
             payload={"query": state["user_query"]},
-            response={"sql": result["sql"][:200], "confidence": result.get("confidence", 0.8)},
+            response={"sql": result["sql"][:200], "confidence": confidence},
             duration_ms=duration,
             success=True
         )
+
+        # Log decision with rationale to observability
+        self.observability.log_agent_decision(
+            trace_id=session_id,
+            agent_name="sql_agent",
+            decision="generate_sql",
+            rationale=f"Translated natural language query to SQL. Confidence: {confidence:.0%}. "
+                     f"SQL type: {'SELECT' if result['sql'].upper().startswith('SELECT') else 'WRITE operation'}",
+            input_data={"query": state["user_query"][:100]},
+            output_data={"sql": result["sql"][:200]},
+            confidence=confidence,
+            duration_ms=duration
+        )
+
         return {
             "generated_sql": result["sql"],
-            "sql_confidence": result.get("confidence", 0.8)
+            "sql_confidence": confidence
         }
 
     async def _classify_query(self, state: HealthcareState) -> Dict[str, Any]:
@@ -212,19 +304,42 @@ class HealthcareOrchestrator:
         session_id = state.get("session_id", "unknown")
         result = await self.classifier_agent.classify(state["generated_sql"])
         duration = int((time.time() - start_time) * 1000)
+        query_type = result["query_type"]
+        risk_score = result["risk_score"]
+
         await self._log_agent_interaction(
             session_id=session_id,
             sender_agent="orchestrator",
             receiver_agent="classifier_agent",
             capability="classify_query",
             payload={"sql": state["generated_sql"][:100]},
-            response={"query_type": result["query_type"], "risk_score": result["risk_score"]},
+            response={"query_type": query_type, "risk_score": risk_score},
             duration_ms=duration,
             success=True
         )
+
+        # Log classification decision with rationale
+        risk_level = "low" if risk_score < 0.3 else "medium" if risk_score < 0.7 else "high"
+        self.observability.log_agent_decision(
+            trace_id=session_id,
+            agent_name="classifier_agent",
+            decision="classify_query",
+            rationale=f"Classified as {query_type} with {risk_level} risk ({risk_score:.0%}). "
+                     f"Assessment: {result['risk_assessment'][:100]}",
+            input_data={"sql": state["generated_sql"][:100]},
+            output_data={"query_type": query_type, "risk_score": risk_score},
+            confidence=1.0 - risk_score,
+            alternatives=[
+                {"type": "READ", "description": "Safe read-only query"},
+                {"type": "WRITE", "description": "Modifying query requiring approval"},
+                {"type": "UNSAFE", "description": "Potentially dangerous operation"}
+            ],
+            duration_ms=duration
+        )
+
         return {
-            "query_type": result["query_type"],
-            "risk_score": result["risk_score"],
+            "query_type": query_type,
+            "risk_score": risk_score,
             "risk_assessment": result["risk_assessment"]
         }
 
@@ -234,6 +349,8 @@ class HealthcareOrchestrator:
         session_id = state.get("session_id", "unknown")
         violations = await self.classifier_agent.check_guardrails(state["generated_sql"])
         duration = int((time.time() - start_time) * 1000)
+        passed = len(violations) == 0
+
         await self._log_agent_interaction(
             session_id=session_id,
             sender_agent="orchestrator",
@@ -242,8 +359,26 @@ class HealthcareOrchestrator:
             payload={"sql": state["generated_sql"][:100]},
             response={"violations": violations},
             duration_ms=duration,
-            success=len(violations) == 0
+            success=passed
         )
+
+        # Log guardrail check decision with rationale
+        if passed:
+            rationale = "Query passed all guardrail checks: no DROP/TRUNCATE, no system tables, proper syntax"
+        else:
+            rationale = f"Query blocked due to violations: {', '.join(violations[:3])}"
+
+        self.observability.log_agent_decision(
+            trace_id=session_id,
+            agent_name="guardrail_agent",
+            decision="check_guardrails",
+            rationale=rationale,
+            input_data={"sql": state["generated_sql"][:100]},
+            output_data={"passed": passed, "violations": violations},
+            confidence=1.0 if passed else 0.0,
+            duration_ms=duration
+        )
+
         return {"guardrail_violations": violations}
 
     def _route_after_guardrails(self, state: HealthcareState) -> str:
@@ -437,6 +572,16 @@ Provide a clear summary for the medical professional.""")
         """Handle rejected or blocked queries"""
         violations = state.get("guardrail_violations", [])
         query_type = state.get("query_type", "")
+        toxicity_result = state.get("toxicity_result")
+
+        # Check for toxicity rejection first
+        if state.get("toxicity_blocked") and toxicity_result:
+            message = toxicity_result.get("message", "Query blocked due to policy violations.")
+            return {
+                "execution_result": message,
+                "approval_status": ApprovalStatus.BLOCKED.value,
+                "blocked_reason": "toxicity"
+            }
 
         if violations:
             message = f"Query blocked due to guardrail violations:\n"
@@ -444,26 +589,47 @@ Provide a clear summary for the medical professional.""")
                 message += f"- {v}\n"
             return {
                 "execution_result": message,
-                "approval_status": ApprovalStatus.BLOCKED.value
+                "approval_status": ApprovalStatus.BLOCKED.value,
+                "blocked_reason": "guardrails"
             }
 
         if query_type == QueryType.UNSAFE.value:
             return {
                 "execution_result": f"Query blocked: {state.get('risk_assessment', 'Unsafe operation detected')}",
-                "approval_status": ApprovalStatus.BLOCKED.value
+                "approval_status": ApprovalStatus.BLOCKED.value,
+                "blocked_reason": "unsafe_query"
             }
 
         # HITL rejection
         return {
             "execution_result": f"Query rejected by reviewer {state.get('reviewer_id', 'unknown')}.\nReason: {state.get('review_notes', 'No reason provided')}",
-            "approval_status": ApprovalStatus.REJECTED.value
+            "approval_status": ApprovalStatus.REJECTED.value,
+            "blocked_reason": "hitl_rejected"
         }
 
     async def _log_audit(self, state: HealthcareState) -> Dict[str, Any]:
-        """Log operation to audit trail"""
+        """Log operation to audit trail with PHI redacted"""
         try:
             from datetime import datetime
             import json
+            from ..phi_filter import mask_phi_in_text, MaskingLevel
+
+            # Redact PHI from audit log entries
+            # Note: We still log the query and SQL for audit purposes,
+            # but mask any PHI values that appear in the text
+            redacted_query = mask_phi_in_text(
+                state.get("user_query", ""),
+                MaskingLevel.PARTIAL
+            )
+            redacted_sql = mask_phi_in_text(
+                state.get("generated_sql", ""),
+                MaskingLevel.PARTIAL
+            )
+            redacted_result = mask_phi_in_text(
+                str(state.get("execution_result", ""))[:1000],
+                MaskingLevel.PARTIAL
+            )
+
             conn = await asyncpg.connect(self.database_url)
             await conn.execute("""
                 INSERT INTO audit_log (
@@ -475,19 +641,19 @@ Provide a clear summary for the medical professional.""")
                 datetime.now(),
                 state.get("session_id"),
                 state.get("user_id"),
-                state.get("user_query"),
+                redacted_query,
                 state.get("query_type"),
-                state.get("generated_sql"),
+                redacted_sql,
                 state.get("approval_status"),
                 state.get("risk_score"),
                 json.dumps(state.get("guardrail_violations", [])),
                 state.get("reviewer_id"),
                 state.get("review_notes"),
-                str(state.get("execution_result", ""))[:1000],
+                redacted_result,
                 state.get("execution_time_ms")
             )
             await conn.close()
-            return {"audit_logged": True}
+            return {"audit_logged": True, "phi_redacted": True}
         except Exception as e:
             print(f"Audit logging failed: {e}")
             return {"audit_logged": False}
@@ -508,13 +674,51 @@ Provide a clear summary for the medical professional.""")
             "timestamp": datetime.now().isoformat()
         }
 
-        # Run the graph
-        result = await self.graph.ainvoke(initial_state, config)
+        # Create observability trace for this query session
+        async with self.observability.create_trace(
+            name="healthcare_query",
+            session_id=session_id,
+            user_id=user_id,
+            metadata={"query": query[:200]}
+        ) as trace:
+            # Log initial query
+            trace.log_decision(
+                agent_name="orchestrator",
+                decision="process_query",
+                rationale="Starting healthcare query processing workflow",
+                input_data={"query": query, "user_id": user_id},
+                output_data={"session_id": session_id},
+                confidence=1.0
+            )
 
-        # Check if paused for HITL
-        snapshot = self.graph.get_state(config)
-        if snapshot.next and "hitl_gate" in str(snapshot.next):
-            result["requires_approval"] = True
+            # Run the graph
+            result = await self.graph.ainvoke(initial_state, config)
+
+            # Check if paused for HITL
+            snapshot = self.graph.get_state(config)
+            if snapshot.next and "hitl_gate" in str(snapshot.next):
+                result["requires_approval"] = True
+                trace.log_decision(
+                    agent_name="orchestrator",
+                    decision="hitl_pause",
+                    rationale="Write operation requires human approval before execution",
+                    input_data={"query_type": result.get("query_type")},
+                    output_data={"paused": True},
+                    confidence=1.0
+                )
+
+            # Log final result
+            trace.log_decision(
+                agent_name="orchestrator",
+                decision="query_completed",
+                rationale=f"Query processing {'paused for approval' if result.get('requires_approval') else 'completed'}",
+                input_data={"session_id": session_id},
+                output_data={
+                    "status": result.get("approval_status", "completed"),
+                    "has_result": bool(result.get("execution_result"))
+                },
+                confidence=1.0
+            )
 
         return result
 

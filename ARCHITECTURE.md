@@ -10,6 +10,7 @@
 7. [Security & Compliance](#7-security--compliance)
 8. [Deployment Architecture](#8-deployment-architecture)
 9. [API Reference](#9-api-reference)
+10. [Observability & Tracing](#10-observability--tracing)
 
 ---
 
@@ -1099,6 +1100,186 @@ Get analytics metrics.
 
 ---
 
+## 10. Observability & Tracing
+
+### 10.1 Overview
+
+The Healthcare Intelligence Platform includes comprehensive observability features for explainability, accountability, and debugging. This is implemented through integration with two powerful observability platforms:
+
+- **LangSmith**: LangChain's native tracing and monitoring platform
+- **Langfuse**: Open-source LLM observability with self-hosting options
+
+### 10.2 Features
+
+| Feature | Description |
+|---------|-------------|
+| **Decision Tracing** | Track every agent decision with full rationale |
+| **Agent Conversations** | Log all agent-to-agent communications |
+| **Confidence Scores** | Record confidence levels for SQL generation and classification |
+| **Execution Timings** | Measure latency for each workflow step |
+| **Error Tracking** | Capture and analyze failures |
+| **Session Replay** | View complete query session traces |
+
+### 10.3 Architecture
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                    OBSERVABILITY LAYER                            │
+├──────────────────────────────────────────────────────────────────┤
+│                                                                   │
+│  ┌─────────────────┐         ┌─────────────────┐                │
+│  │   LangSmith     │         │    Langfuse     │                │
+│  │  (Cloud/Self)   │         │  (Cloud/Self)   │                │
+│  └────────▲────────┘         └────────▲────────┘                │
+│           │                           │                          │
+│           └───────────┬───────────────┘                          │
+│                       │                                          │
+│              ┌────────┴────────┐                                │
+│              │ Observability   │                                │
+│              │    Manager      │                                │
+│              └────────▲────────┘                                │
+│                       │                                          │
+└───────────────────────┼──────────────────────────────────────────┘
+                        │
+           ┌────────────┼────────────┐
+           │            │            │
+    ┌──────▼──────┐ ┌───▼────┐ ┌────▼─────┐
+    │ SQL Agent   │ │Classifier│ │ HITL    │
+    │ Decisions   │ │ Decisions│ │ Decisions│
+    └─────────────┘ └──────────┘ └──────────┘
+```
+
+### 10.4 Configuration
+
+#### Environment Variables
+
+```bash
+# LangSmith Configuration
+LANGCHAIN_TRACING_V2=true              # Enable LangSmith tracing
+LANGCHAIN_API_KEY=ls_xxxxxxxx          # LangSmith API key
+LANGCHAIN_PROJECT=healthcare-multi-agent  # Project name
+
+# Langfuse Configuration
+LANGFUSE_PUBLIC_KEY=pk_xxxxxxxx        # Langfuse public key
+LANGFUSE_SECRET_KEY=sk_xxxxxxxx        # Langfuse secret key
+LANGFUSE_HOST=https://cloud.langfuse.com  # Langfuse host (or self-hosted URL)
+```
+
+#### Docker Compose
+
+The docker-compose.yml automatically passes these environment variables to the agents service:
+
+```yaml
+agents:
+  environment:
+    # LangSmith (optional)
+    - LANGCHAIN_TRACING_V2=${LANGCHAIN_TRACING_V2:-false}
+    - LANGCHAIN_API_KEY=${LANGCHAIN_API_KEY:-}
+    - LANGCHAIN_PROJECT=${LANGCHAIN_PROJECT:-healthcare-multi-agent}
+    # Langfuse (optional)
+    - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY:-}
+    - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY:-}
+    - LANGFUSE_HOST=${LANGFUSE_HOST:-https://cloud.langfuse.com}
+```
+
+### 10.5 Decision Logging
+
+Each agent decision is logged with:
+
+```python
+{
+    "timestamp": "2024-01-15T10:30:00Z",
+    "trace_id": "session-uuid",
+    "agent": "sql_agent",
+    "decision": "generate_sql",
+    "rationale": "Translated natural language to SQL. Confidence: 85%. SQL type: SELECT",
+    "input": {"query": "Show all patients with diabetes"},
+    "output": {"sql": "SELECT * FROM patients..."},
+    "confidence": 0.85,
+    "alternatives": [...],
+    "duration_ms": 450
+}
+```
+
+### 10.6 Agent Conversation Logging
+
+Agent-to-agent communications are tracked:
+
+```python
+{
+    "timestamp": "2024-01-15T10:30:01Z",
+    "trace_id": "session-uuid",
+    "sender": "orchestrator",
+    "receiver": "classifier_agent",
+    "message_type": "request",
+    "content": {"sql": "SELECT * FROM patients..."},
+    "response": {"query_type": "READ", "risk_score": 0.1}
+}
+```
+
+### 10.7 Implementation Details
+
+#### ObservabilityManager
+
+Located at `agents/src/observability/tracer.py`:
+
+```python
+class ObservabilityManager:
+    """Unified observability manager for LangSmith and Langfuse"""
+
+    def create_trace(name, session_id, user_id, metadata) -> TraceContext
+    def log_agent_decision(trace_id, agent_name, decision, rationale, ...)
+    def log_agent_conversation(trace_id, sender, receiver, message_type, ...)
+    def flush()  # Flush pending traces
+```
+
+#### TraceContext
+
+```python
+async with observability.create_trace(
+    name="healthcare_query",
+    session_id=session_id,
+    user_id=user_id,
+    metadata={"query": query}
+) as trace:
+    trace.log_decision(
+        agent_name="sql_agent",
+        decision="generate_sql",
+        rationale="Generated SELECT query for patient lookup",
+        input_data={"query": user_query},
+        output_data={"sql": generated_sql},
+        confidence=0.85
+    )
+```
+
+### 10.8 Viewing Traces
+
+#### LangSmith Dashboard
+
+1. Go to https://smith.langchain.com
+2. Select the "healthcare-multi-agent" project
+3. View traces, filter by session, analyze latency
+
+#### Langfuse Dashboard
+
+1. Go to https://cloud.langfuse.com (or self-hosted URL)
+2. Navigate to Traces
+3. Filter by session_id or user_id
+4. View decision rationale and agent conversations
+
+### 10.9 Local Development
+
+For local development without external services, traces are logged to stdout:
+
+```
+LangSmith tracing disabled (no LANGCHAIN_API_KEY)
+Langfuse tracing disabled (no LANGFUSE_PUBLIC_KEY)
+```
+
+Agent interactions are still logged to the `agent_interactions` database table for the Agent Monitoring Console.
+
+---
+
 ## Appendix A: File Structure
 
 ```
@@ -1116,6 +1297,10 @@ Health_Assistant/
 │   │   │   └── agent.py        # ExecutorAgent class
 │   │   ├── hitl_agent/         # HITL workflow
 │   │   │   └── agent.py        # HITLAgent class
+│   │   ├── observability/      # Tracing & Logging
+│   │   │   ├── __init__.py     # Module exports
+│   │   │   ├── tracer.py       # ObservabilityManager, TraceContext
+│   │   │   └── callbacks.py    # LangSmith/Langfuse callbacks
 │   │   ├── a2a/                # Agent-to-Agent protocol
 │   │   └── main.py             # FastAPI application
 │   ├── requirements.txt
@@ -1173,6 +1358,14 @@ Health_Assistant/
 # 1. Set environment variables
 export OPENAI_API_KEY=sk-your-key
 
+# Optional: Enable LangSmith observability
+export LANGCHAIN_TRACING_V2=true
+export LANGCHAIN_API_KEY=ls-your-key
+
+# Optional: Enable Langfuse observability
+export LANGFUSE_PUBLIC_KEY=pk-your-key
+export LANGFUSE_SECRET_KEY=sk-your-key
+
 # 2. Start all services
 docker compose up -d
 
@@ -1186,6 +1379,10 @@ open http://localhost:13040    # Direct frontend
 
 # 5. Test a query
 # In the chat interface, try: "Show all patients"
+
+# 6. View traces (if observability enabled)
+# LangSmith: https://smith.langchain.com
+# Langfuse: https://cloud.langfuse.com
 ```
 
 ---
