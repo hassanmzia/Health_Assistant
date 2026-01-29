@@ -153,9 +153,11 @@ RULES:
 - Use lowercase column names (no double quotes needed for FHIR tables)
 - Include LIMIT 100 for SELECT unless specified otherwise
 - NEVER generate DROP, TRUNCATE, or ALTER statements
+- NEVER use SELECT * — always list specific columns explicitly. This is a strict security requirement.
 - Use ILIKE for case-insensitive text matching
 - For patient name display, concatenate: name_given || ' ' || name_family
 - For age queries, always use AGE() function: EXTRACT(YEAR FROM AGE(CURRENT_DATE, birth_date))
+- Avoid selecting PHI columns (identifier_ssn, identifier_passport, identifier_drivers_license) unless explicitly requested
 
 INSERT STATEMENT RULES (CRITICAL):
 - For INSERT statements, use gen_random_uuid() for the id column
