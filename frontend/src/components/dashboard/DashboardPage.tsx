@@ -3,7 +3,7 @@ import { BarChart3, Users, FileText, Activity, TrendingUp } from 'lucide-react'
 import axios from 'axios'
 import { clsx } from 'clsx'
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000/api'
+const API_URL = import.meta.env.VITE_API_URL || '/api'
 
 interface Metrics {
   total_queries: number
