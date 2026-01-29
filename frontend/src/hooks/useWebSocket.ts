@@ -3,7 +3,7 @@ import { io, Socket } from 'socket.io-client'
 import { useStore } from '../store'
 import { ApprovalTask } from '../types'
 
-const WS_URL = import.meta.env.VITE_WS_URL || 'http://localhost:3002'
+const WS_URL = import.meta.env.VITE_WS_URL || `${window.location.protocol}//${window.location.host}`
 
 export function useWebSocket() {
   const socketRef = useRef<Socket | null>(null)
