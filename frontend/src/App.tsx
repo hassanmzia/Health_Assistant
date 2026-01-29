@@ -11,6 +11,17 @@ import ObservabilityDashboard from './components/observability/ObservabilityDash
 import FHIRBrowserPage from './components/fhir/FHIRBrowserPage'
 import FHIRPatientList from './components/fhir/FHIRPatientList'
 import FHIRPatientDetail from './components/fhir/FHIRPatientDetail'
+import {
+  PractitionerListPage,
+  OrganizationListPage,
+  EncounterListPage,
+  ConditionListPage,
+  ObservationListPage,
+  MedicationListPage,
+  AllergyListPage,
+  ProcedureListPage,
+  ImmunizationListPage,
+} from './components/fhir/FHIRResourcePages'
 
 function App() {
   const { connect, disconnect } = useWebSocket()
@@ -37,6 +48,15 @@ function App() {
           <Route path="fhir" element={<FHIRBrowserPage />} />
           <Route path="fhir/patients" element={<FHIRPatientList />} />
           <Route path="fhir/patients/:id" element={<FHIRPatientDetail />} />
+          <Route path="fhir/practitioners" element={<PractitionerListPage />} />
+          <Route path="fhir/organizations" element={<OrganizationListPage />} />
+          <Route path="fhir/encounters" element={<EncounterListPage />} />
+          <Route path="fhir/conditions" element={<ConditionListPage />} />
+          <Route path="fhir/observations" element={<ObservationListPage />} />
+          <Route path="fhir/medications" element={<MedicationListPage />} />
+          <Route path="fhir/allergies" element={<AllergyListPage />} />
+          <Route path="fhir/procedures" element={<ProcedureListPage />} />
+          <Route path="fhir/immunizations" element={<ImmunizationListPage />} />
         </Route>
       </Routes>
     </BrowserRouter>
