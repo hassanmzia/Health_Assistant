@@ -52,9 +52,9 @@ export default function ChatPage() {
   ]
 
   return (
-    <div className="flex gap-6 h-[calc(100vh-8rem)]">
+    <div className="flex gap-4 h-[calc(100vh-8rem)] min-w-0 overflow-hidden">
       {/* Chat Area */}
-      <div className="flex-1 flex flex-col bg-white rounded-lg shadow-sm border border-gray-200">
+      <div className="flex-1 flex flex-col bg-white rounded-lg shadow-sm border border-gray-200 min-w-0">
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.length === 0 ? (
@@ -109,7 +109,7 @@ export default function ChatPage() {
 
       {/* HITL Panel (shown when approval needed) */}
       {currentApproval && (
-        <div className="w-96">
+        <div className="w-80 shrink-0 overflow-y-auto">
           <HITLApprovalPanel approval={currentApproval} />
         </div>
       )}
