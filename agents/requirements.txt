@@ -12,6 +12,10 @@ langgraph==0.2.60
 langgraph-checkpoint==2.0.9
 langgraph-checkpoint-postgres==2.0.9
 
+# Observability & Tracing
+langsmith==0.1.147
+langfuse==2.57.1
+
 # Database
 psycopg2-binary==2.9.9
 asyncpg==0.29.0

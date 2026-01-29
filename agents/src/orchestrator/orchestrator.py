@@ -24,6 +24,7 @@ from ..sql_agent import SQLAgent
 from ..classifier_agent import ClassifierAgent
 from ..executor_agent import ExecutorAgent
 from ..hitl_agent import HITLAgent
+from ..observability import ObservabilityManager, get_langfuse_callbacks
 
 
 class HealthcareOrchestrator:
@@ -43,11 +44,18 @@ class HealthcareOrchestrator:
         self.mcp_url = mcp_url
         self.redis_client = redis_client
 
-        # Initialize LLM
+        # Initialize observability manager for tracing
+        self.observability = ObservabilityManager()
+
+        # Get callbacks for LLM tracing
+        callbacks = get_langfuse_callbacks()
+
+        # Initialize LLM with observability callbacks
         self.llm = ChatOpenAI(
             model="gpt-4o-mini",
             api_key=openai_api_key,
-            temperature=0
+            temperature=0,
+            callbacks=callbacks if callbacks else None
         )
 
         # Initialize agents
@@ -191,19 +199,36 @@ class HealthcareOrchestrator:
             schema_context=state.get("schema_context", "")
         )
         duration = int((time.time() - start_time) * 1000)
+        confidence = result.get("confidence", 0.8)
+
+        # Log agent interaction
         await self._log_agent_interaction(
             session_id=session_id,
             sender_agent="orchestrator",
             receiver_agent="sql_agent",
             capability="generate_sql",
             payload={"query": state["user_query"]},
-            response={"sql": result["sql"][:200], "confidence": result.get("confidence", 0.8)},
+            response={"sql": result["sql"][:200], "confidence": confidence},
             duration_ms=duration,
             success=True
         )
+
+        # Log decision with rationale to observability
+        self.observability.log_agent_decision(
+            trace_id=session_id,
+            agent_name="sql_agent",
+            decision="generate_sql",
+            rationale=f"Translated natural language query to SQL. Confidence: {confidence:.0%}. "
+                     f"SQL type: {'SELECT' if result['sql'].upper().startswith('SELECT') else 'WRITE operation'}",
+            input_data={"query": state["user_query"][:100]},
+            output_data={"sql": result["sql"][:200]},
+            confidence=confidence,
+            duration_ms=duration
+        )
+
         return {
             "generated_sql": result["sql"],
-            "sql_confidence": result.get("confidence", 0.8)
+            "sql_confidence": confidence
         }
 
     async def _classify_query(self, state: HealthcareState) -> Dict[str, Any]:
@@ -212,19 +237,42 @@ class HealthcareOrchestrator:
         session_id = state.get("session_id", "unknown")
         result = await self.classifier_agent.classify(state["generated_sql"])
         duration = int((time.time() - start_time) * 1000)
+        query_type = result["query_type"]
+        risk_score = result["risk_score"]
+
         await self._log_agent_interaction(
             session_id=session_id,
             sender_agent="orchestrator",
             receiver_agent="classifier_agent",
             capability="classify_query",
             payload={"sql": state["generated_sql"][:100]},
-            response={"query_type": result["query_type"], "risk_score": result["risk_score"]},
+            response={"query_type": query_type, "risk_score": risk_score},
             duration_ms=duration,
             success=True
         )
+
+        # Log classification decision with rationale
+        risk_level = "low" if risk_score < 0.3 else "medium" if risk_score < 0.7 else "high"
+        self.observability.log_agent_decision(
+            trace_id=session_id,
+            agent_name="classifier_agent",
+            decision="classify_query",
+            rationale=f"Classified as {query_type} with {risk_level} risk ({risk_score:.0%}). "
+                     f"Assessment: {result['risk_assessment'][:100]}",
+            input_data={"sql": state["generated_sql"][:100]},
+            output_data={"query_type": query_type, "risk_score": risk_score},
+            confidence=1.0 - risk_score,
+            alternatives=[
+                {"type": "READ", "description": "Safe read-only query"},
+                {"type": "WRITE", "description": "Modifying query requiring approval"},
+                {"type": "UNSAFE", "description": "Potentially dangerous operation"}
+            ],
+            duration_ms=duration
+        )
+
         return {
-            "query_type": result["query_type"],
-            "risk_score": result["risk_score"],
+            "query_type": query_type,
+            "risk_score": risk_score,
             "risk_assessment": result["risk_assessment"]
         }
 
@@ -234,6 +282,8 @@ class HealthcareOrchestrator:
         session_id = state.get("session_id", "unknown")
         violations = await self.classifier_agent.check_guardrails(state["generated_sql"])
         duration = int((time.time() - start_time) * 1000)
+        passed = len(violations) == 0
+
         await self._log_agent_interaction(
             session_id=session_id,
             sender_agent="orchestrator",
@@ -242,8 +292,26 @@ class HealthcareOrchestrator:
             payload={"sql": state["generated_sql"][:100]},
             response={"violations": violations},
             duration_ms=duration,
-            success=len(violations) == 0
+            success=passed
         )
+
+        # Log guardrail check decision with rationale
+        if passed:
+            rationale = "Query passed all guardrail checks: no DROP/TRUNCATE, no system tables, proper syntax"
+        else:
+            rationale = f"Query blocked due to violations: {', '.join(violations[:3])}"
+
+        self.observability.log_agent_decision(
+            trace_id=session_id,
+            agent_name="guardrail_agent",
+            decision="check_guardrails",
+            rationale=rationale,
+            input_data={"sql": state["generated_sql"][:100]},
+            output_data={"passed": passed, "violations": violations},
+            confidence=1.0 if passed else 0.0,
+            duration_ms=duration
+        )
+
         return {"guardrail_violations": violations}
 
     def _route_after_guardrails(self, state: HealthcareState) -> str:
@@ -508,13 +576,51 @@ Provide a clear summary for the medical professional.""")
             "timestamp": datetime.now().isoformat()
         }
 
-        # Run the graph
-        result = await self.graph.ainvoke(initial_state, config)
+        # Create observability trace for this query session
+        async with self.observability.create_trace(
+            name="healthcare_query",
+            session_id=session_id,
+            user_id=user_id,
+            metadata={"query": query[:200]}
+        ) as trace:
+            # Log initial query
+            trace.log_decision(
+                agent_name="orchestrator",
+                decision="process_query",
+                rationale="Starting healthcare query processing workflow",
+                input_data={"query": query, "user_id": user_id},
+                output_data={"session_id": session_id},
+                confidence=1.0
+            )
 
-        # Check if paused for HITL
-        snapshot = self.graph.get_state(config)
-        if snapshot.next and "hitl_gate" in str(snapshot.next):
-            result["requires_approval"] = True
+            # Run the graph
+            result = await self.graph.ainvoke(initial_state, config)
+
+            # Check if paused for HITL
+            snapshot = self.graph.get_state(config)
+            if snapshot.next and "hitl_gate" in str(snapshot.next):
+                result["requires_approval"] = True
+                trace.log_decision(
+                    agent_name="orchestrator",
+                    decision="hitl_pause",
+                    rationale="Write operation requires human approval before execution",
+                    input_data={"query_type": result.get("query_type")},
+                    output_data={"paused": True},
+                    confidence=1.0
+                )
+
+            # Log final result
+            trace.log_decision(
+                agent_name="orchestrator",
+                decision="query_completed",
+                rationale=f"Query processing {'paused for approval' if result.get('requires_approval') else 'completed'}",
+                input_data={"session_id": session_id},
+                output_data={
+                    "status": result.get("approval_status", "completed"),
+                    "has_result": bool(result.get("execution_result"))
+                },
+                confidence=1.0
+            )
 
         return result
 
