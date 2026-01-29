@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     'healthcare_api.apps.audit',
     'healthcare_api.apps.agents',
     'healthcare_api.apps.hitl',
+    'healthcare_api.apps.fhir',
 ]
 
 MIDDLEWARE = [
