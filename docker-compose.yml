@@ -65,7 +65,7 @@ services:
     volumes:
       - backend_static:/app/staticfiles
     ports:
-      - "18000:8000"
+      - "18002:8000"
     depends_on:
       postgres:
         condition: service_healthy
