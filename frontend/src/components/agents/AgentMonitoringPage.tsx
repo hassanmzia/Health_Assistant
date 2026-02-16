@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Bot, Activity, Cpu, Zap, Clock, CheckCircle2, XCircle, AlertTriangle, RefreshCw } from 'lucide-react'
-import axios from 'axios'
+import api from '../../utils/api'
 import { clsx } from 'clsx'
 import WorkflowDiagram from './WorkflowDiagram'
-
-const API_URL = import.meta.env.VITE_API_URL || '/api'
 
 // Default agent definitions (these are static and well-known)
 const DEFAULT_AGENTS: Agent[] = [
@@ -80,13 +78,13 @@ export default function AgentMonitoringPage() {
       setAgents(DEFAULT_AGENTS)
 
       // Fetch agent interactions from backend
-      const interactionsResponse = await axios.get(`${API_URL}/agents/interactions/`).catch(() => null)
+      const interactionsResponse = await api.get('/agents/interactions/').catch(() => null)
       if (interactionsResponse?.data) {
         setInteractions(interactionsResponse.data.slice(0, 50))
       }
 
       // Fetch agent stats
-      const statsResponse = await axios.get(`${API_URL}/agents/stats/`).catch(() => null)
+      const statsResponse = await api.get('/agents/stats/').catch(() => null)
       if (statsResponse?.data) {
         setStats(statsResponse.data)
 

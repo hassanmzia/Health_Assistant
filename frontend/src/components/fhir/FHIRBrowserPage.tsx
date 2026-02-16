@@ -4,10 +4,8 @@ import {
   Database, Users, UserCog, Building2, Stethoscope, Activity,
   Pill, AlertTriangle, Syringe, ClipboardList, TrendingUp
 } from 'lucide-react'
-import axios from 'axios'
+import api from '../../utils/api'
 import { clsx } from 'clsx'
-
-const API_URL = import.meta.env.VITE_API_URL || '/api'
 
 interface FHIRStatistics {
   counts: {
@@ -85,7 +83,7 @@ export default function FHIRBrowserPage() {
 
   const fetchStatistics = async () => {
     try {
-      const response = await axios.get(`${API_URL}/fhir/statistics/`)
+      const response = await api.get('/fhir/statistics/')
       setStats(response.data)
     } catch (err) {
       console.error('Failed to fetch FHIR statistics:', err)

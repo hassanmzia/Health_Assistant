@@ -5,10 +5,8 @@ import {
   Activity, Pill, AlertTriangle, Syringe, Stethoscope, FileText,
   Clock, Building2
 } from 'lucide-react'
-import axios from 'axios'
+import api from '../../utils/api'
 import { clsx } from 'clsx'
-
-const API_URL = import.meta.env.VITE_API_URL || '/api'
 
 interface PatientFull {
   id: string
@@ -146,7 +144,7 @@ export default function FHIRPatientDetail() {
 
   const fetchPatient = async () => {
     try {
-      const response = await axios.get(`${API_URL}/fhir/patients/${id}/full_record/`)
+      const response = await api.get(`/fhir/patients/${id}/full_record/`)
       setPatient(response.data)
     } catch (err) {
       console.error('Failed to fetch patient:', err)
