@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Activity, UserPlus, Loader2, Eye, EyeOff } from 'lucide-react'
+import { Activity, UserPlus, Loader2, Eye, EyeOff, AlertCircle } from 'lucide-react'
 import { useAuthStore } from '../../store/authStore'
 import { authApi } from '../../utils/api'
 
@@ -47,9 +47,29 @@ export default function RegisterPage() {
     return fieldErrors ? fieldErrors[0] : ''
   }
 
+  const getAllErrors = (): string[] => {
+    const allErrors: string[] = []
+    for (const [field, msgs] of Object.entries(errors)) {
+      const label = field === 'non_field_errors' ? '' :
+        field === 'password_confirm' ? 'Confirm Password' :
+        field.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+      for (const msg of msgs) {
+        allErrors.push(label ? `${label}: ${msg}` : msg)
+      }
+    }
+    return allErrors
+  }
+
   const updateField = (field: string, value: string) => {
     setForm({ ...form, [field]: value })
   }
+
+  const hasErrors = Object.keys(errors).length > 0
+
+  const inputClass = (field: string) =>
+    `mt-1 block w-full px-3 py-2 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm sm:text-base ${
+      getError(field) ? 'border-danger-500' : 'border-gray-300'
+    }`
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-8 sm:py-12 px-4 sm:px-6 lg:px-8">
@@ -72,9 +92,19 @@ export default function RegisterPage() {
       <div className="mt-6 sm:mt-8 sm:mx-auto sm:w-full sm:max-w-lg">
         <div className="bg-white py-6 sm:py-8 px-4 sm:px-10 shadow-sm rounded-lg border border-gray-200">
           <form onSubmit={handleSubmit} className="space-y-4">
-            {errors.non_field_errors && (
-              <div className="bg-danger-50 border border-danger-200 text-danger-700 rounded-lg p-3 text-sm">
-                {errors.non_field_errors[0]}
+            {hasErrors && (
+              <div className="bg-danger-50 border border-danger-200 rounded-lg p-3 text-sm">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="h-5 w-5 text-danger-500 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="font-medium text-danger-800">Please fix the following errors:</p>
+                    <ul className="mt-1 list-disc list-inside text-danger-700 space-y-0.5">
+                      {getAllErrors().map((msg, i) => (
+                        <li key={i}>{msg}</li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
               </div>
             )}
 
@@ -118,7 +148,7 @@ export default function RegisterPage() {
                 autoComplete="username"
                 value={form.username}
                 onChange={(e) => updateField('username', e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm sm:text-base"
+                className={inputClass('username')}
                 placeholder="Choose a username"
               />
               {getError('username') && (
@@ -137,7 +167,7 @@ export default function RegisterPage() {
                 autoComplete="email"
                 value={form.email}
                 onChange={(e) => updateField('email', e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm sm:text-base"
+                className={inputClass('email')}
                 placeholder="you@example.com"
               />
               {getError('email') && (
@@ -186,7 +216,7 @@ export default function RegisterPage() {
                   autoComplete="new-password"
                   value={form.password}
                   onChange={(e) => updateField('password', e.target.value)}
-                  className="block w-full px-3 py-2 pr-10 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm sm:text-base"
+                  className={`block w-full px-3 py-2 pr-10 border rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm sm:text-base ${getError('password') ? 'border-danger-500' : 'border-gray-300'}`}
                   placeholder="Create a password"
                 />
                 <button
@@ -200,6 +230,9 @@ export default function RegisterPage() {
               {getError('password') && (
                 <p className="mt-1 text-sm text-danger-600">{getError('password')}</p>
               )}
+              <p className="mt-1 text-xs text-gray-500">
+                Must be at least 8 characters. Cannot be entirely numeric or a commonly used password.
+              </p>
             </div>
 
             <div>
@@ -213,7 +246,7 @@ export default function RegisterPage() {
                 autoComplete="new-password"
                 value={form.password_confirm}
                 onChange={(e) => updateField('password_confirm', e.target.value)}
-                className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 text-sm sm:text-base"
+                className={inputClass('password_confirm')}
                 placeholder="Confirm your password"
               />
               {getError('password_confirm') && (
