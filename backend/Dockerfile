@@ -19,10 +19,14 @@ COPY . .
 # Collect static files
 RUN python manage.py collectstatic --noinput || true
 
+# Make entrypoint executable
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
+
 # Create non-root user
 RUN useradd -m appuser && chown -R appuser:appuser /app
 USER appuser
 
 EXPOSE 8000
 
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "--workers", "4", "--threads", "2", "healthcare_api.wsgi:application"]
+ENTRYPOINT ["/app/entrypoint.sh"]
