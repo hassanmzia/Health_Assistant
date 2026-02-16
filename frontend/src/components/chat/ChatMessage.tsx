@@ -41,7 +41,7 @@ export default function ChatMessage({ message }: ChatMessageProps) {
       {/* Message Content */}
       <div
         className={clsx(
-          'flex-1 max-w-[80%] rounded-lg px-4 py-2',
+          'flex-1 max-w-[90%] sm:max-w-[80%] rounded-lg px-3 sm:px-4 py-2',
           isUser
             ? 'bg-primary-600 text-white'
             : isSystem
@@ -61,7 +61,7 @@ export default function ChatMessage({ message }: ChatMessageProps) {
                 return (
                   <code
                     className={clsx(
-                      'block overflow-x-auto p-2 rounded bg-gray-800 text-gray-100 text-xs',
+                      'block overflow-x-auto p-2 rounded bg-gray-800 text-gray-100 text-[11px] sm:text-xs',
                       className
                     )}
                     {...props}

@@ -109,14 +109,14 @@ export default function FHIRPatientList() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           <Link to="/fhir" className="text-gray-500 hover:text-gray-700">
             <ChevronLeft className="h-5 w-5" />
           </Link>
-          <Users className="h-8 w-8 text-primary-600" />
+          <Users className="h-6 w-6 sm:h-8 sm:w-8 text-primary-600 shrink-0" />
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">FHIR Patients</h1>
-            <p className="text-gray-600">{totalCount.toLocaleString()} patients in database</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">FHIR Patients</h1>
+            <p className="text-sm sm:text-base text-gray-600">{totalCount.toLocaleString()} patients in database</p>
           </div>
         </div>
       </div>
@@ -137,7 +137,7 @@ export default function FHIRPatientList() {
           </div>
 
           {/* Filters */}
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <select
               value={genderFilter}
               onChange={(e) => { setGenderFilter(e.target.value); setPage(1) }}
@@ -164,7 +164,7 @@ export default function FHIRPatientList() {
               placeholder="State..."
               value={stateFilter}
               onChange={(e) => { setStateFilter(e.target.value); setPage(1) }}
-              className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
+              className="w-20 sm:w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 text-sm"
             />
           </div>
         </div>
@@ -189,6 +189,7 @@ export default function FHIRPatientList() {
       {!loading && !error && (
         <>
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+            <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
@@ -284,12 +285,13 @@ export default function FHIRPatientList() {
                 ))}
               </tbody>
             </table>
+            </div>
           </div>
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-gray-600">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
+              <p className="text-xs sm:text-sm text-gray-600">
                 Showing {((page - 1) * pageSize) + 1} to {Math.min(page * pageSize, totalCount)} of {totalCount} patients
               </p>
               <div className="flex items-center gap-2">

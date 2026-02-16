@@ -21,11 +21,11 @@ interface StatCardProps {
 
 function StatCard({ title, value, icon: Icon, color, change }: StatCardProps) {
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 sm:p-6">
       <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm text-gray-600">{title}</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{value}</p>
+        <div className="min-w-0">
+          <p className="text-xs sm:text-sm text-gray-600 truncate">{title}</p>
+          <p className="text-xl sm:text-2xl font-bold text-gray-900 mt-1">{value}</p>
           {change && (
             <p className="text-sm text-success-600 flex items-center mt-1">
               <TrendingUp className="h-3 w-3 mr-1" />
@@ -69,18 +69,18 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
       <div className="flex items-center gap-3">
-        <BarChart3 className="h-8 w-8 text-primary-600" />
+        <BarChart3 className="h-6 w-6 sm:h-8 sm:w-8 text-primary-600 shrink-0" />
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
-          <p className="text-gray-600">Healthcare Intelligence Analytics</p>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Dashboard</h1>
+          <p className="text-sm sm:text-base text-gray-600">Healthcare Intelligence Analytics</p>
         </div>
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
         <StatCard
           title="Total Queries"
           value={metrics?.total_queries || 0}
@@ -108,7 +108,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Query Type Distribution */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-6">
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Query Types</h3>
           <div className="space-y-4">
@@ -171,7 +171,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Info Cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
         <div className="bg-gradient-to-br from-primary-600 to-primary-700 rounded-lg shadow-sm p-6 text-white">
           <h3 className="text-lg font-semibold mb-2">Multi-Agent System</h3>
           <p className="text-primary-100 text-sm">

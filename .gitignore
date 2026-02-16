@@ -51,3 +51,9 @@ data/
 htmlcov/
 .coverage
 coverage/
+
+# SSL certificates (sensitive - do not commit actual certs)
+ssl/*.pem
+ssl/*.key
+ssl/*.crt
+ssl/*.csr

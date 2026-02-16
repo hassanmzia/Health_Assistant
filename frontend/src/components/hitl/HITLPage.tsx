@@ -55,17 +55,18 @@ export default function HITLPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Shield className="h-8 w-8 text-primary-600" />
+        <div className="flex items-center gap-2 sm:gap-3">
+          <Shield className="h-6 w-6 sm:h-8 sm:w-8 text-primary-600 shrink-0" />
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">HITL Approvals</h1>
-            <p className="text-gray-600">Human-in-the-Loop approval history</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">HITL Approvals</h1>
+            <p className="text-sm sm:text-base text-gray-600">Human-in-the-Loop approval history</p>
           </div>
         </div>
       </div>
 
       {/* Tasks Table */}
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
+        <div className="overflow-x-auto">
         <table className="min-w-full divide-y divide-gray-200">
           <thead className="bg-gray-50">
             <tr>
@@ -159,6 +160,7 @@ export default function HITLPage() {
             )}
           </tbody>
         </table>
+        </div>
       </div>
     </div>
   )

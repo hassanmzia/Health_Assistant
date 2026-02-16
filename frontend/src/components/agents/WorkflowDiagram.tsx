@@ -213,12 +213,12 @@ export default function WorkflowDiagram({ className }: WorkflowDiagramProps) {
       )}
     >
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b border-gray-200">
-        <div className="flex items-center gap-4">
-          <h3 className="text-lg font-semibold text-gray-900">Workflow Visualization</h3>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between p-3 sm:p-4 border-b border-gray-200 gap-3">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+          <h3 className="text-base sm:text-lg font-semibold text-gray-900">Workflow Visualization</h3>
 
           {/* Diagram type tabs */}
-          <div className="flex rounded-lg bg-gray-100 p-1">
+          <div className="flex rounded-lg bg-gray-100 p-1 overflow-x-auto">
             {(Object.keys(diagrams) as DiagramType[]).map((type) => (
               <button
                 key={type}
@@ -227,7 +227,7 @@ export default function WorkflowDiagram({ className }: WorkflowDiagramProps) {
                   setCustomDiagram(null)
                 }}
                 className={clsx(
-                  'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
+                  'px-2 sm:px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md transition-colors whitespace-nowrap',
                   diagramType === type && !customDiagram
                     ? 'bg-white text-gray-900 shadow-sm'
                     : 'text-gray-600 hover:text-gray-900'
@@ -239,7 +239,7 @@ export default function WorkflowDiagram({ className }: WorkflowDiagramProps) {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 self-end sm:self-auto">
           <button
             onClick={fetchWorkflowFromServer}
             disabled={loading}
@@ -283,8 +283,8 @@ export default function WorkflowDiagram({ className }: WorkflowDiagramProps) {
       </div>
 
       {/* Legend */}
-      <div className="px-6 pb-4">
-        <div className="flex flex-wrap gap-4 text-sm text-gray-600">
+      <div className="px-3 sm:px-6 pb-4">
+        <div className="flex flex-wrap gap-3 sm:gap-4 text-xs sm:text-sm text-gray-600">
           <div className="flex items-center gap-2">
             <div className="w-4 h-4 rounded bg-green-500" />
             <span>Start/Auto-Execute</span>
