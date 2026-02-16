@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import { Send, Loader2 } from 'lucide-react'
 import { useStore } from '../../store'
+import { useAuthStore } from '../../store/authStore'
 import { useWebSocket } from '../../hooks/useWebSocket'
 import { generateUUID } from '../../utils/uuid'
 import ChatMessage from './ChatMessage'
@@ -10,7 +11,9 @@ export default function ChatPage() {
   const [input, setInput] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
-  const { messages, isLoading, sessionId, userId, currentApproval, addMessage } = useStore()
+  const { messages, isLoading, sessionId, currentApproval, addMessage } = useStore()
+  const { user } = useAuthStore()
+  const userId = user?.username || 'anonymous'
   const { sendQuery } = useWebSocket()
 
   const scrollToBottom = () => {

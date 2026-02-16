@@ -1,3 +1,25 @@
+export interface UserProfile {
+  role: string
+  phone: string
+  department: string
+}
+
+export interface AuthUser {
+  id: number
+  username: string
+  email: string
+  first_name: string
+  last_name: string
+  role: string
+  date_joined: string
+  profile: UserProfile
+}
+
+export interface AuthTokens {
+  access: string
+  refresh: string
+}
+
 export interface Message {
   id: string
   role: 'user' | 'assistant' | 'system'
