@@ -16,10 +16,8 @@ import {
   ArrowRight,
   Filter
 } from 'lucide-react'
-import axios from 'axios'
+import api from '../../utils/api'
 import { clsx } from 'clsx'
-
-const API_URL = import.meta.env.VITE_API_URL || '/api'
 
 interface Trace {
   id: string
@@ -83,7 +81,7 @@ export default function ObservabilityDashboard() {
   const fetchData = async () => {
     try {
       // Fetch observability config
-      const configResponse = await axios.get(`${API_URL}/observability/config/`).catch(() => null)
+      const configResponse = await api.get('/observability/config/').catch(() => null)
       if (configResponse?.data) {
         setConfig(configResponse.data)
       } else {
@@ -97,13 +95,13 @@ export default function ObservabilityDashboard() {
       }
 
       // Fetch traces with decisions
-      const tracesResponse = await axios.get(`${API_URL}/observability/traces/`).catch(() => null)
+      const tracesResponse = await api.get('/observability/traces/').catch(() => null)
       if (tracesResponse?.data) {
         setTraces(tracesResponse.data)
       }
 
       // Fetch recent agent conversations
-      const conversationsResponse = await axios.get(`${API_URL}/agents/interactions/`).catch(() => null)
+      const conversationsResponse = await api.get('/agents/interactions/').catch(() => null)
       if (conversationsResponse?.data) {
         setConversations(conversationsResponse.data.slice(0, 100))
       }

@@ -3,9 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import {
   ChevronLeft, ChevronRight, Search, AlertCircle
 } from 'lucide-react'
-import axios from 'axios'
-
-const API_URL = import.meta.env.VITE_API_URL || '/api'
+import api from '../../utils/api'
 
 interface ColumnDef {
   key: string
@@ -94,8 +92,8 @@ export default function FHIRResourceList({
       const params = new URLSearchParams()
       if (searchTerm) params.append('search', searchTerm)
       params.append('page', page.toString())
-      const response = await axios.get<PaginatedResponse>(
-        `${API_URL}/fhir/${apiEndpoint}/?${params}`
+      const response = await api.get<PaginatedResponse>(
+        `/fhir/${apiEndpoint}/?${params}`
       )
       setItems(response.data.results)
       setTotalCount(response.data.count)

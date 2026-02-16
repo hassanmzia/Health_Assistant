@@ -1,9 +1,7 @@
 import { useEffect, useState } from 'react'
 import { BarChart3, Users, FileText, Activity, TrendingUp } from 'lucide-react'
-import axios from 'axios'
+import api from '../../utils/api'
 import { clsx } from 'clsx'
-
-const API_URL = import.meta.env.VITE_API_URL || '/api'
 
 interface Metrics {
   total_queries: number
@@ -51,7 +49,7 @@ export default function DashboardPage() {
 
   const fetchMetrics = async () => {
     try {
-      const response = await axios.get(`${API_URL}/audit/metrics/`)
+      const response = await api.get('/audit/metrics/')
       setMetrics(response.data)
     } catch (error) {
       console.error('Failed to fetch metrics:', error)

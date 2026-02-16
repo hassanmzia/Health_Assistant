@@ -1,10 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import mermaid from 'mermaid'
 import { RefreshCw, Maximize2, Minimize2 } from 'lucide-react'
-import axios from 'axios'
+import api from '../../utils/api'
 import { clsx } from 'clsx'
-
-const API_URL = import.meta.env.VITE_API_URL || '/api'
 
 // Default LangGraph workflow diagram
 const DEFAULT_WORKFLOW_DIAGRAM = `
@@ -187,7 +185,7 @@ export default function WorkflowDiagram({ className }: WorkflowDiagramProps) {
     setLoading(true)
     setError(null)
     try {
-      const response = await axios.get(`${API_URL}/agents/workflow/`)
+      const response = await api.get('/agents/workflow/')
       if (response.data?.mermaid) {
         setCustomDiagram(response.data.mermaid)
       }

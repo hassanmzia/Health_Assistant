@@ -1,10 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Shield, Clock, CheckCircle, XCircle, AlertTriangle } from 'lucide-react'
-import axios from 'axios'
+import api from '../../utils/api'
 import { ApprovalTask } from '../../types'
 import { clsx } from 'clsx'
-
-const API_URL = import.meta.env.VITE_API_URL || '/api'
 
 export default function HITLPage() {
   const [tasks, setTasks] = useState<ApprovalTask[]>([])
@@ -16,7 +14,7 @@ export default function HITLPage() {
 
   const fetchTasks = async () => {
     try {
-      const response = await axios.get(`${API_URL}/hitl/history/`)
+      const response = await api.get('/hitl/history/')
       setTasks(response.data)
     } catch (error) {
       console.error('Failed to fetch tasks:', error)

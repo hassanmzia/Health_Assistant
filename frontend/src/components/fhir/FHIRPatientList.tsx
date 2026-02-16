@@ -4,10 +4,8 @@ import {
   Users, Search, ChevronLeft, ChevronRight,
   User, Calendar, MapPin, Mail, AlertCircle
 } from 'lucide-react'
-import axios from 'axios'
+import api from '../../utils/api'
 import { clsx } from 'clsx'
-
-const API_URL = import.meta.env.VITE_API_URL || '/api'
 
 interface Patient {
   id: string
@@ -60,7 +58,7 @@ export default function FHIRPatientList() {
       if (activeFilter) params.append('active', activeFilter)
       params.append('page', page.toString())
 
-      const response = await axios.get<PaginatedResponse>(`${API_URL}/fhir/patients/?${params}`)
+      const response = await api.get<PaginatedResponse>(`/fhir/patients/?${params}`)
       setPatients(response.data.results)
       setTotalCount(response.data.count)
     } catch (err) {
