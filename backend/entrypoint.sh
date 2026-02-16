@@ -26,5 +26,8 @@ else
     echo "FHIR data already exists ($FHIR_COUNT patients). Skipping generation."
 fi
 
+echo "Ensuring default admin account exists..."
+python manage.py create_admin --username admin --email admin@health.local --password Admin123!
+
 echo "Starting gunicorn..."
 exec gunicorn --bind 0.0.0.0:8000 --workers 4 --threads 2 healthcare_api.wsgi:application
