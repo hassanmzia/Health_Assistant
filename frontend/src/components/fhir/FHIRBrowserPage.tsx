@@ -54,12 +54,12 @@ function ResourceCard({ title, count, activeCount, icon: Icon, color, link }: Re
   return (
     <Link
       to={link}
-      className="bg-white rounded-lg shadow-sm border border-gray-200 p-5 hover:shadow-md hover:border-primary-300 transition-all"
+      className="bg-white rounded-lg shadow-sm border border-gray-200 p-3 sm:p-5 hover:shadow-md hover:border-primary-300 transition-all"
     >
       <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm text-gray-600">{title}</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">{count.toLocaleString()}</p>
+        <div className="min-w-0">
+          <p className="text-xs sm:text-sm text-gray-600 truncate">{title}</p>
+          <p className="text-lg sm:text-2xl font-bold text-gray-900 mt-1">{count.toLocaleString()}</p>
           {activeCount !== undefined && activeCount !== count && (
             <p className="text-xs text-gray-500 mt-1">
               {activeCount.toLocaleString()} active
@@ -132,24 +132,24 @@ docker compose exec backend python manage.py generate_fhir_data --patients 100`}
   const counts = stats?.counts || {} as FHIRStatistics['counts']
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
         <div className="flex items-center gap-3">
-          <Database className="h-8 w-8 text-primary-600" />
+          <Database className="h-6 w-6 sm:h-8 sm:w-8 text-primary-600 shrink-0" />
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">FHIR Data Browser</h1>
-            <p className="text-gray-600">FHIR R4 Healthcare Data Explorer</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">FHIR Data Browser</h1>
+            <p className="text-sm sm:text-base text-gray-600">FHIR R4 Healthcare Data Explorer</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 text-sm text-gray-500">
-          <TrendingUp className="h-4 w-4" />
+        <div className="flex items-center gap-2 text-xs sm:text-sm text-gray-500 ml-9 sm:ml-0">
+          <TrendingUp className="h-4 w-4 shrink-0" />
           <span>{stats?.recent_activity?.encounters_last_30_days || 0} encounters in last 30 days</span>
         </div>
       </div>
 
       {/* Resource Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3 sm:gap-4">
         <ResourceCard
           title="Patients"
           count={counts.patients || 0}
@@ -226,7 +226,7 @@ docker compose exec backend python manage.py generate_fhir_data --patients 100`}
       </div>
 
       {/* Charts and Statistics */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-6">
         {/* Demographics */}
         <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
           <h3 className="text-lg font-semibold text-gray-900 mb-4">Patient Demographics</h3>
@@ -345,7 +345,7 @@ docker compose exec backend python manage.py generate_fhir_data --patients 100`}
           This database follows the HL7 FHIR R4 specification for healthcare interoperability.
           Data includes standardized codes from ICD-10-CM, SNOMED CT, LOINC, RxNorm, and CVX.
         </p>
-        <div className="flex gap-4">
+        <div className="flex flex-wrap gap-3">
           <Link
             to="/fhir/patients"
             className="bg-white/20 hover:bg-white/30 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"

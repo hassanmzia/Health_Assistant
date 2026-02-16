@@ -163,30 +163,30 @@ export default function AgentMonitoringPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Bot className="h-8 w-8 text-primary-600" />
+        <div className="flex items-center gap-2 sm:gap-3">
+          <Bot className="h-6 w-6 sm:h-8 sm:w-8 text-primary-600 shrink-0" />
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Agent Monitoring</h1>
-            <p className="text-gray-600">Real-time multi-agent system status</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Agent Monitoring</h1>
+            <p className="text-sm sm:text-base text-gray-600">Real-time multi-agent system status</p>
           </div>
         </div>
         <button
           onClick={handleRefresh}
           disabled={refreshing}
           className={clsx(
-            'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors',
+            'flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm font-medium transition-colors shrink-0',
             'bg-primary-100 text-primary-700 hover:bg-primary-200',
             refreshing && 'opacity-50 cursor-not-allowed'
           )}
         >
           <RefreshCw className={clsx('h-4 w-4', refreshing && 'animate-spin')} />
-          Refresh
+          <span className="hidden sm:inline">Refresh</span>
         </button>
       </div>
 
       {/* Stats Grid */}
       {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
           <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -365,7 +365,7 @@ export default function AgentMonitoringPage() {
       </div>
 
       {/* Info Cards */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-6">
         <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg shadow-sm p-6 text-white">
           <h3 className="text-lg font-semibold mb-2">LangGraph Orchestration</h3>
           <p className="text-blue-100 text-sm">

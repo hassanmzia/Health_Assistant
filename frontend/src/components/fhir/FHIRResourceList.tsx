@@ -133,14 +133,14 @@ export default function FHIRResourceList({
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           <Link to="/fhir" className="text-gray-500 hover:text-gray-700">
             <ChevronLeft className="h-5 w-5" />
           </Link>
-          <Icon className="h-8 w-8 text-primary-600" />
+          <Icon className="h-6 w-6 sm:h-8 sm:w-8 text-primary-600 shrink-0" />
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">FHIR {title}</h1>
-            <p className="text-gray-600">{totalCount.toLocaleString()} {title.toLowerCase()} in database</p>
+            <h1 className="text-xl sm:text-2xl font-bold text-gray-900">FHIR {title}</h1>
+            <p className="text-sm sm:text-base text-gray-600">{totalCount.toLocaleString()} {title.toLowerCase()} in database</p>
           </div>
         </div>
       </div>
@@ -219,8 +219,8 @@ export default function FHIRResourceList({
 
           {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-gray-600">
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-2">
+              <p className="text-xs sm:text-sm text-gray-600">
                 Showing {((page - 1) * pageSize) + 1} to {Math.min(page * pageSize, totalCount)} of {totalCount}
               </p>
               <div className="flex items-center gap-2">

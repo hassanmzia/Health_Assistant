@@ -164,25 +164,25 @@ export default function ObservabilityDashboard() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Eye className="h-8 w-8 text-primary-600" />
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Observability & Explainability</h1>
-            <p className="text-gray-600">Track agent decisions, traces, and conversations</p>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+          <Eye className="h-6 w-6 sm:h-8 sm:w-8 text-primary-600 shrink-0" />
+          <div className="min-w-0">
+            <h1 className="text-lg sm:text-2xl font-bold text-gray-900 truncate">Observability & Explainability</h1>
+            <p className="text-sm sm:text-base text-gray-600 hidden sm:block">Track agent decisions, traces, and conversations</p>
           </div>
         </div>
         <button
           onClick={handleRefresh}
           disabled={refreshing}
           className={clsx(
-            'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors',
+            'flex items-center gap-1 sm:gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm font-medium transition-colors shrink-0',
             'bg-primary-100 text-primary-700 hover:bg-primary-200',
             refreshing && 'opacity-50 cursor-not-allowed'
           )}
         >
           <RefreshCw className={clsx('h-4 w-4', refreshing && 'animate-spin')} />
-          Refresh
+          <span className="hidden sm:inline">Refresh</span>
         </button>
       </div>
 
@@ -357,8 +357,8 @@ export default function ObservabilityDashboard() {
                   </button>
 
                   {expandedDecisions.has(String(conv.id)) && (
-                    <div className="px-4 py-3 bg-gray-50 border-t border-gray-200">
-                      <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div className="px-3 sm:px-4 py-3 bg-gray-50 border-t border-gray-200">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
                         <div>
                           <p className="text-xs font-medium text-gray-500 uppercase mb-1">Input</p>
                           <pre className="bg-white p-2 rounded border text-xs overflow-x-auto">
@@ -461,7 +461,7 @@ export default function ObservabilityDashboard() {
       </div>
 
       {/* Observability Info */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
         <div className="bg-gradient-to-br from-emerald-600 to-emerald-700 rounded-lg shadow-sm p-5 text-white">
           <div className="flex items-center gap-2 mb-2">
             <Activity className="h-5 w-5" />
